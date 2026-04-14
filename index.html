@@ -48,7 +48,7 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 .chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
 .chart-card{background:#f8f9ff;border-radius:14px;padding:18px;text-align:center}
 .chart-card h3{font-size:13px;font-weight:700;margin-bottom:4px}
-.chart-card .sbadge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:10px}
+.sbadge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:10px}
 .compare-wrap{overflow-x:auto}
 .compare-table{border-collapse:collapse;font-size:13px;min-width:700px;width:100%}
 .compare-table th{background:#1a1a2e;color:#fff;padding:12px 16px;text-align:center;font-size:12px;white-space:nowrap}
@@ -56,6 +56,7 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 .compare-table td{padding:11px 16px;border-bottom:1px solid #f0f2f7;text-align:center;vertical-align:middle}
 .compare-table td.lb{text-align:left;font-weight:600;font-size:12px;color:#555;background:#f8f9ff;white-space:nowrap;border-right:1px solid #e8eaf0}
 .compare-table td.ch{background:#eef0f8;font-weight:700;font-size:12px;color:#1a1a2e;text-align:left;padding:8px 16px}
+.compare-table tr:hover td:not(.ch):not(.lb){background:#fafbff}
 .ok{color:#06d6a0;font-weight:700}
 .ng{color:#e63946;font-weight:700}
 .warn{color:#f4a261;font-weight:700}
@@ -73,6 +74,10 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 .elinks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .elink{font-size:11px;padding:4px 10px;background:#f0f5ff;color:#3a86ff;border-radius:6px;text-decoration:none;border:1px solid #3a86ff}
 .elink:hover{background:#3a86ff;color:#fff}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+.dot-ok{background:#06d6a0}
+.dot-ng{background:#e63946}
+.dot-warn{background:#f4a261}
 </style>
 </head>
 <body>
@@ -138,7 +143,6 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 </div>
 
 <script>
-var PX=['https://api.allorigins.win/get?url=','https://corsproxy.io/?','https://api.codetabs.com/v1/proxy?quest='];
 var RES=[],CC=0,RC=null;
 var COLS=['#3a86ff','#06d6a0','#f4a261','#e63946','#8b5cf6','#ec4899'];
 
@@ -151,20 +155,14 @@ function addComp(){
   document.getElementById('comps').appendChild(d);
 }
 
-var sleep=ms=>new Promise(r=>setTimeout(r,ms));
-
-async function fetchU(url){
-  for(var i=0;i<PX.length;i++){
-    try{
-      var res=await Promise.race([
-        fetch(PX[i]+encodeURIComponent(url)).then(r=>r.json()),
-        new Promise((_,rej)=>setTimeout(()=>rej('timeout'),9000))
-      ]);
-      var c=res.contents||res;
-      if(typeof c==='string'&&c.length>200)return c;
-    }catch(e){await sleep(400);}
-  }
-  return '';
+// サーバーサイドAPIで取得（Googlebot UA使用）
+async function fetchSite(url){
+  try{
+    var res=await fetch('/api/fetch?url='+encodeURIComponent(url));
+    var data=await res.json();
+    if(data.ok&&data.body&&data.body.length>200)return data.body;
+    return '';
+  }catch(e){return '';}
 }
 
 async function go(){
@@ -191,7 +189,7 @@ async function go(){
   pw.style.display='block';RES=[];document.getElementById('MA').innerHTML='';
 
   for(var i=0;i<sites.length;i++){
-    pm.textContent='('+(i+1)+'/'+sites.length+') '+sites[i].name+' を複数プロキシで分析中...';
+    pm.textContent='('+(i+1)+'/'+sites.length+') '+sites[i].name+' を分析中...';
     pb.style.width=Math.round(i/sites.length*100)+'%';
     RES.push(await analyze(sites[i]));
   }
@@ -206,8 +204,8 @@ async function go(){
 async function analyze(site){
   var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,seoScore:0,llmoScore:0,meoScore:0,sizeScore:0,totalScore:0,score:'',error:false,manual:false};
   try{
-    var html=await fetchU(site.url);
-    if(!html||html.length<200){r.error=true;score(r);return r;}
+    var html=await fetchSite(site.url);
+    if(!html){r.error=true;calcScore(r);return r;}
     var p=new DOMParser(),d=p.parseFromString(html,'text/html');
     r.title=(d.querySelector('title')||{textContent:''}).textContent.trim();
     r.desc=((d.querySelector('meta[name="description"]')||{getAttribute:()=>''}).getAttribute('content')||'').trim();
@@ -217,16 +215,17 @@ async function analyze(site){
     r.hasCanonical=!!d.querySelector('link[rel="canonical"]');
     r.hasSchema=!!d.querySelector('script[type="application/ld+json"]');
     r.hasFaq=html.toLowerCase().includes('faq')||html.includes('よくある質問')||html.includes('Q&A');
+    // ページ数取得
     try{
-      var sm=await fetchU(site.url+'/sitemap.xml');
+      var sm=await fetchSite(site.url+'/sitemap.xml');
       if(sm){var sd=p.parseFromString(sm,'text/xml');r.pageCnt=sd.querySelectorAll('url loc').length;}
-      if(!r.pageCnt){var ws=await fetchU(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
+      if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
   }catch(e){r.error=true;}
-  score(r);return r;
+  calcScore(r);return r;
 }
 
-function score(r){
+function calcScore(r){
   var s=0;
   if(r.title&&r.title.length>=20&&r.title.length<=60)s+=25;else if(r.title)s+=12;
   if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=25;else if(r.desc)s+=12;
@@ -237,8 +236,7 @@ function score(r){
   if(r.gbpCount>=50)m+=50;else if(r.gbpCount>=20)m+=35;else if(r.gbpCount>=5)m+=20;else if(r.gbpCount>0)m+=10;
   if(r.gbpScore>=4.5)m+=50;else if(r.gbpScore>=4.0)m+=35;else if(r.gbpScore>=3.5)m+=20;else if(r.gbpScore>0)m+=10;
   r.meoScore=Math.min(m,100);
-  var z=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
-  r.sizeScore=z;
+  r.sizeScore=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
   r.totalScore=Math.round(r.seoScore*0.35+r.llmoScore*0.2+r.meoScore*0.3+r.sizeScore*0.15);
   r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
 }
@@ -284,8 +282,7 @@ function renderCharts(){
 function renderTable(){
   var t=document.getElementById('CT');
   var hdr='<thead><tr><th style="text-align:left;min-width:140px">項目</th>'+RES.map((r,i)=>'<th class="'+(r.isSelf?'sh':'')+'" style="min-width:130px">'+esc(r.name)+'<br><span style="font-size:10px;font-weight:400;opacity:.7">'+esc(r.url.replace(/https?:\/\//,'').split('/')[0])+'</span></th>').join('')+'</tr></thead>';
-  var N=RES.length;
-  function cat(l){return '<tr><td class="ch" colspan="'+(N+1)+'">'+l+'</td></tr>';}
+  function cat(l){return '<tr><td class="ch" colspan="'+(RES.length+1)+'">'+l+'</td></tr>';}
   function row(l,fn){return '<tr><td class="lb">'+l+'</td>'+RES.map(fn).map(v=>'<td>'+v+'</td>').join('')+'</tr>';}
   function na(r){return r.error&&!r.manual;}
   var rows='<tbody>';
@@ -326,7 +323,6 @@ function openManual(idx){
   var ex=document.getElementById('mp'+idx);if(ex){ex.remove();return;}
   var panel=document.createElement('div');panel.className='manual-panel';panel.id='mp'+idx;
   panel.innerHTML='<h4>✏️ '+esc(r.name)+' — 手動入力</h4>'+
-    '<p style="font-size:12px;color:#888;margin-bottom:8px">以下のリンクでサイトを確認して入力してください</p>'+
     '<div class="elinks">'+
       '<a href="'+r.url+'" target="_blank" class="elink">🌐 サイトを開く</a>'+
       '<a href="https://pagespeed.web.dev/analysis?url='+encodeURIComponent(r.url)+'" target="_blank" class="elink">⚡ PageSpeed</a>'+
@@ -367,7 +363,7 @@ function applyManual(idx){
   r.hasSchema=document.getElementById('msc'+idx).checked;
   r.hasFaq=document.getElementById('mfq'+idx).checked;
   r.error=false;r.manual=true;
-  score(r);
+  calcScore(r);
   document.getElementById('mp'+idx).remove();
   render();
 }
@@ -382,7 +378,7 @@ function dlCSV(){
     ['業種',...RES.map(()=>document.getElementById('industry').value)],
     ['エリア',...RES.map(()=>document.getElementById('area').value)],
     ['URL',...RES.map(r=>r.url)],
-    [''],['=== 総合 ==='],
+    [''],['=== 総合スコア ==='],
     ['総合スコア',...RES.map(r=>r.error&&!r.manual?'取得失敗':r.score+' ('+r.totalScore+'点)')],
     ['SEOスコア',...RES.map(r=>r.seoScore+'点')],
     ['LLMOスコア',...RES.map(r=>r.llmoScore+'点')],
