@@ -4,373 +4,412 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>競合サイト比較ツール</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:sans-serif;background:#f4f6f9;color:#1a1a2e}
-header{background:#1a1a2e;color:#fff;padding:16px 24px}
-header h1{font-size:18px}
-header p{font-size:12px;color:#aaa;margin-top:4px}
+body{font-family:'Hiragino Kaku Gothic ProN',sans-serif;background:#f0f2f8;color:#1a1a2e}
+header{background:linear-gradient(135deg,#1a1a2e,#2d3a6e);color:#fff;padding:20px 28px}
+header h1{font-size:20px;font-weight:700}
+header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 .wrap{max-width:1100px;margin:0 auto;padding:24px}
-.card{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card{background:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.07)}
 .card h2{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.badge{font-size:11px;background:#3a86ff;color:#fff;padding:2px 8px;border-radius:20px;font-weight:500}
+.badge{font-size:11px;background:#3a86ff;color:#fff;padding:2px 8px;border-radius:20px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .field{margin-bottom:12px}
 .field label{font-size:12px;color:#666;display:block;margin-bottom:4px;font-weight:600}
-.field input{width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:8px;font-size:14px;transition:border .2s}
+.field input{width:100%;padding:10px 14px;border:2px solid #e8eaf0;border-radius:8px;font-size:14px;transition:border .2s}
 .field input:focus{outline:none;border-color:#3a86ff}
-.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
-.blue{background:#3a86ff;color:#fff}.blue:hover{background:#2563eb}.blue:disabled{background:#aaa;cursor:not-allowed}
+.btn{padding:11px 22px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.blue{background:#3a86ff;color:#fff}.blue:disabled{background:#aaa;cursor:not-allowed}
 .green{background:#06d6a0;color:#fff}
 .out{background:#fff;color:#3a86ff;border:2px solid #3a86ff}
-.ac{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
-.competitor-block{background:#f8f9ff;border:2px solid #e0e4ee;border-radius:10px;padding:16px;margin-bottom:12px;position:relative}
-.competitor-block h3{font-size:13px;font-weight:700;color:#3a86ff;margin-bottom:10px}
-.self-block{background:#f0fdf9;border:2px solid #06d6a0;border-radius:10px;padding:16px;margin-bottom:12px}
+.ac{display:flex;gap:10px;flex-wrap:wrap}
+.self-block{background:#f0fdf9;border:2px solid #06d6a0;border-radius:12px;padding:16px;margin-bottom:12px}
 .self-block h3{font-size:13px;font-weight:700;color:#06d6a0;margin-bottom:10px}
-.remove-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:#e63946;cursor:pointer;font-size:18px;line-height:1}
-.bw{height:6px;background:#eee;border-radius:3px;margin:10px 0;display:none}
-.bv{height:100%;background:#3a86ff;border-radius:3px;transition:width .3s}
+.comp-block{background:#f8f9ff;border:2px solid #e0e4ee;border-radius:12px;padding:16px;margin-bottom:12px;position:relative}
+.comp-block h3{font-size:13px;font-weight:700;color:#3a86ff;margin-bottom:10px}
+.remove-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:#e63946;cursor:pointer;font-size:20px}
+.bw{height:8px;background:#eee;border-radius:4px;margin:10px 0;display:none;overflow:hidden}
+.bv{height:100%;background:linear-gradient(90deg,#3a86ff,#06d6a0);border-radius:4px;transition:width .4s}
 .mg{font-size:13px;color:#666;margin:6px 0}
 .hidden{display:none}
-.sp{display:inline-block;width:13px;height:13px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle;margin-right:5px}
+.sp{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
-.compare-wrap{overflow-x:auto;margin-top:8px}
+.sum-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:24px}
+.sum-card{border-radius:14px;padding:18px 20px;color:#fff}
+.sum-best{background:linear-gradient(135deg,#06d6a0,#059669)}
+.sum-worst{background:linear-gradient(135deg,#e63946,#b91c1c)}
+.sum-gbp{background:linear-gradient(135deg,#f4a261,#ea580c)}
+.sum-self{background:linear-gradient(135deg,#3a86ff,#1d4ed8)}
+.sum-card h4{font-size:11px;opacity:.8;margin-bottom:6px;letter-spacing:.5px}
+.sum-card .val{font-size:22px;font-weight:700}
+.sum-card .sub{font-size:12px;opacity:.8;margin-top:4px}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:24px}
+.chart-card{background:#f8f9ff;border-radius:14px;padding:18px;text-align:center}
+.chart-card h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.chart-card .sbadge{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:10px}
+.compare-wrap{overflow-x:auto}
 .compare-table{border-collapse:collapse;font-size:13px;min-width:700px;width:100%}
-.compare-table th{background:#1a1a2e;color:#fff;padding:10px 14px;text-align:center;font-size:12px;white-space:nowrap}
-.compare-table th.self{background:#064e3b;color:#6ee7b7}
-.compare-table td{padding:10px 14px;border-bottom:1px solid #f0f2f7;text-align:center;vertical-align:middle}
-.compare-table td.label{text-align:left;font-weight:600;font-size:12px;color:#555;background:#f8f9ff;white-space:nowrap}
-.compare-table td.cat-head{background:#f0f2f7;font-weight:700;font-size:12px;color:#1a1a2e;text-align:left;padding:8px 14px;letter-spacing:.5px}
-.compare-table tr:hover td:not(.cat-head):not(.label){background:#fafbff}
+.compare-table th{background:#1a1a2e;color:#fff;padding:12px 16px;text-align:center;font-size:12px;white-space:nowrap}
+.compare-table th.sh{background:#064e3b;color:#6ee7b7}
+.compare-table td{padding:11px 16px;border-bottom:1px solid #f0f2f7;text-align:center;vertical-align:middle}
+.compare-table td.lb{text-align:left;font-weight:600;font-size:12px;color:#555;background:#f8f9ff;white-space:nowrap;border-right:1px solid #e8eaf0}
+.compare-table td.ch{background:#eef0f8;font-weight:700;font-size:12px;color:#1a1a2e;text-align:left;padding:8px 16px}
 .ok{color:#06d6a0;font-weight:700}
 .ng{color:#e63946;font-weight:700}
 .warn{color:#f4a261;font-weight:700}
-.na{color:#aaa;font-size:12px}
-.sc-A{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#f0fdf9;color:#06d6a0;border:1px solid #06d6a0}
-.sc-B{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#f0f5ff;color:#3a86ff;border:1px solid #3a86ff}
-.sc-C{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#fff8f0;color:#f4a261;border:1px solid #f4a261}
-.sc-D{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#fff0f0;color:#e63946;border:1px solid #e63946}
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
-.sum-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.05);border-left:4px solid #3a86ff}
-.sum-card.best{border-left-color:#06d6a0}
-.sum-card.worst{border-left-color:#e63946}
-.sum-card h4{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-.sum-card .val{font-size:20px;font-weight:700;color:#1a1a2e}
-.sum-card .sub{font-size:12px;color:#666;margin-top:4px}
+.na{color:#ccc;font-size:12px}
+.scA{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#f0fdf9;color:#06d6a0;border:1px solid #06d6a0}
+.scB{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#f0f5ff;color:#3a86ff;border:1px solid #3a86ff}
+.scC{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#fff8f0;color:#f4a261;border:1px solid #f4a261}
+.scD{display:inline-block;padding:3px 12px;border-radius:20px;font-size:12px;font-weight:700;background:#fff0f0;color:#e63946;border:1px solid #e63946}
+.manual-panel{background:#fff8f0;border:2px solid #f4a261;border-radius:12px;padding:18px;margin-top:12px}
+.manual-panel h4{font-size:13px;font-weight:700;color:#f4a261;margin-bottom:10px}
+.mg3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+.mg3 .field{margin-bottom:0}
+.mchecks{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.mchecks label{font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.elinks{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.elink{font-size:11px;padding:4px 10px;background:#f0f5ff;color:#3a86ff;border-radius:6px;text-decoration:none;border:1px solid #3a86ff}
+.elink:hover{background:#3a86ff;color:#fff}
 </style>
 </head>
 <body>
 <header>
-  <h1>競合サイト比較ツール</h1>
-  <p>自社サイトと競合サイトのSEO・LLMO・MEO・サイト規模を横並び比較</p>
+  <h1>🔍 競合サイト比較ツール</h1>
+  <p>SEO・LLMO・MEO・サイト規模をレーダーチャートで可視化して横並び比較</p>
 </header>
 <div class="wrap">
 
 <div class="card">
-  <h2>① 基本情報を入力 <span class="badge">STEP 1</span></h2>
+  <h2>① 基本情報 <span class="badge">STEP 1</span></h2>
   <div class="row2">
-    <div class="field">
-      <label>業種</label>
-      <input type="text" id="industry" placeholder="例：工務店、クリニック、リフォーム会社">
-    </div>
-    <div class="field">
-      <label>エリア</label>
-      <input type="text" id="area" placeholder="例：沖縄県那覇市、東京都渋谷区">
-    </div>
+    <div class="field"><label>業種</label><input type="text" id="industry" placeholder="例：工務店、クリニック"></div>
+    <div class="field"><label>エリア</label><input type="text" id="area" placeholder="例：沖縄県那覇市"></div>
   </div>
 </div>
 
 <div class="card">
-  <h2>② URLを入力 <span class="badge">STEP 2</span></h2>
+  <h2>② URLと情報を入力 <span class="badge">STEP 2</span></h2>
   <div class="self-block">
     <h3>🏠 自社サイト</h3>
     <div class="row2">
-      <div class="field"><label>会社名</label><input type="text" id="self-name" placeholder="例：株式会社〇〇工務店"></div>
-      <div class="field"><label>URL</label><input type="url" id="self-url" placeholder="https://example.com"></div>
+      <div class="field"><label>会社名</label><input type="text" id="sn" placeholder="例：〇〇工務店"></div>
+      <div class="field"><label>URL</label><input type="url" id="su" placeholder="https://example.com"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>GBP口コミ数</label><input type="number" id="self-gbp-count" placeholder="例：24" min="0"></div>
-      <div class="field"><label>GBP評点（★）</label><input type="number" id="self-gbp-score" placeholder="例：4.2" min="0" max="5" step="0.1"></div>
+      <div class="field"><label>GBP口コミ数</label><input type="number" id="sgc" placeholder="例：24" min="0"></div>
+      <div class="field"><label>GBP評点（★）</label><input type="number" id="sgs" placeholder="例：4.2" min="0" max="5" step="0.1"></div>
     </div>
   </div>
-  <div id="competitors"></div>
-  <button class="btn out" onclick="addCompetitor()">＋ 競合を追加</button>
+  <div id="comps"></div>
+  <button class="btn out" onclick="addComp()">＋ 競合を追加</button>
 </div>
 
 <div class="card">
   <h2>③ 分析を実行 <span class="badge">STEP 3</span></h2>
   <div class="ac">
-    <button class="btn blue" id="btn-analyze" onclick="startAnalysis()">🔍 競合比較を開始</button>
+    <button class="btn blue" id="bgo" onclick="go()">🔍 競合比較を開始</button>
   </div>
-  <div class="bw" id="prog-wrap"><div class="bv" id="prog" style="width:0%"></div></div>
-  <div class="mg" id="prog-msg"></div>
+  <div class="bw" id="pw"><div class="bv" id="pb" style="width:0%"></div></div>
+  <div class="mg" id="pm"></div>
 </div>
 
-<div class="hidden" id="result-section">
+<div class="hidden" id="RS">
   <div class="card">
     <h2>④ 比較サマリー <span class="badge">STEP 4</span></h2>
-    <div class="summary-grid" id="summary-grid"></div>
+    <div class="sum-grid" id="SG"></div>
   </div>
   <div class="card">
-    <h2>⑤ 詳細比較表 <span class="badge">STEP 5</span></h2>
-    <div class="ac" style="margin-bottom:12px">
+    <h2>⑤ レーダーチャート比較 <span class="badge">STEP 5</span></h2>
+    <div class="chart-grid" id="CG"></div>
+    <canvas id="RA" style="max-height:380px;max-width:500px;margin:24px auto 0;display:block"></canvas>
+  </div>
+  <div class="card">
+    <h2>⑥ 詳細比較表 <span class="badge">STEP 6</span></h2>
+    <div class="ac" style="margin-bottom:14px">
       <button class="btn green" onclick="dlCSV()">📥 比較レポートCSV出力</button>
     </div>
-    <div class="compare-wrap">
-      <table class="compare-table" id="compare-table"></table>
-    </div>
+    <div class="compare-wrap"><table class="compare-table" id="CT"></table></div>
+    <div id="MA"></div>
   </div>
 </div>
 </div>
 
 <script>
-var PX='https://api.allorigins.win/get?url=';
-var competitorCount=0;
-var results=[];
+var PX=['https://api.allorigins.win/get?url=','https://corsproxy.io/?','https://api.codetabs.com/v1/proxy?quest='];
+var RES=[],CC=0,RC=null;
+var COLS=['#3a86ff','#06d6a0','#f4a261','#e63946','#8b5cf6','#ec4899'];
 
-window.onload=function(){addCompetitor();addCompetitor();};
+window.onload=function(){addComp();addComp();};
 
-function addCompetitor(){
-  competitorCount++;
-  var id=competitorCount;
-  var div=document.createElement('div');
-  div.className='competitor-block';
-  div.id='comp-'+id;
-  div.innerHTML='<h3>🏢 競合 '+id+'</h3><button class="remove-btn" onclick="removeCompetitor('+id+')" title="削除">×</button><div class="row2"><div class="field"><label>会社名</label><input type="text" id="comp-name-'+id+'" placeholder="例：〇〇工務店"></div><div class="field"><label>URL</label><input type="url" id="comp-url-'+id+'" placeholder="https://example.com"></div></div><div class="row2"><div class="field"><label>GBP口コミ数</label><input type="number" id="comp-gbp-count-'+id+'" placeholder="例：45" min="0"></div><div class="field"><label>GBP評点（★）</label><input type="number" id="comp-gbp-score-'+id+'" placeholder="例：4.5" min="0" max="5" step="0.1"></div></div>';
-  document.getElementById('competitors').appendChild(div);
+function addComp(){
+  CC++;var id=CC;
+  var d=document.createElement('div');d.className='comp-block';d.id='cb'+id;
+  d.innerHTML='<h3>🏢 競合'+id+'</h3><button class="remove-btn" onclick="document.getElementById(\'cb'+id+'\').remove()">×</button><div class="row2"><div class="field"><label>会社名</label><input type="text" id="cn'+id+'" placeholder="例：〇〇工務店"></div><div class="field"><label>URL</label><input type="url" id="cu'+id+'" placeholder="https://example.com"></div></div><div class="row2"><div class="field"><label>GBP口コミ数</label><input type="number" id="cg'+id+'" placeholder="例：45" min="0"></div><div class="field"><label>GBP評点（★）</label><input type="number" id="cs'+id+'" placeholder="例：4.5" min="0" max="5" step="0.1"></div></div>';
+  document.getElementById('comps').appendChild(d);
 }
 
-function removeCompetitor(id){
-  var el=document.getElementById('comp-'+id);
-  if(el)el.remove();
-}
+var sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
-
-async function fp(u,retry){
-  retry=retry||0;
-  try{
-    var r=await fetch(PX+encodeURIComponent(u));
-    var d=await r.json();
-    if(!d.contents&&retry<2){await sleep(1500);return fp(u,retry+1);}
-    return d.contents||'';
-  }catch(e){
-    if(retry<2){await sleep(1500);return fp(u,retry+1);}
-    return '';
+async function fetchU(url){
+  for(var i=0;i<PX.length;i++){
+    try{
+      var res=await Promise.race([
+        fetch(PX[i]+encodeURIComponent(url)).then(r=>r.json()),
+        new Promise((_,rej)=>setTimeout(()=>rej('timeout'),9000))
+      ]);
+      var c=res.contents||res;
+      if(typeof c==='string'&&c.length>200)return c;
+    }catch(e){await sleep(400);}
   }
+  return '';
 }
 
-async function startAnalysis(){
+async function go(){
   var sites=[];
-  var selfUrl=document.getElementById('self-url').value.trim();
-  var selfName=document.getElementById('self-name').value.trim()||'自社';
-  if(!selfUrl){alert('自社URLを入力してください');return;}
-  if(!selfUrl.startsWith('http'))selfUrl='https://'+selfUrl;
-  sites.push({name:selfName,url:selfUrl,isSelf:true,gbpCount:parseInt(document.getElementById('self-gbp-count').value)||0,gbpScore:parseFloat(document.getElementById('self-gbp-score').value)||0});
+  var su=document.getElementById('su').value.trim();
+  if(!su){alert('自社URLを入力してください');return;}
+  if(!su.startsWith('http'))su='https://'+su;
+  su=su.replace(/\/$/,'');
+  sites.push({name:document.getElementById('sn').value.trim()||'自社',url:su,isSelf:true,gbpCount:parseInt(document.getElementById('sgc').value)||0,gbpScore:parseFloat(document.getElementById('sgs').value)||0});
 
-  document.querySelectorAll('.competitor-block').forEach(function(c){
-    var id=c.id.replace('comp-','');
-    var url=(document.getElementById('comp-url-'+id)||{value:''}).value.trim();
-    var name=(document.getElementById('comp-name-'+id)||{value:''}).value.trim()||('競合'+id);
+  document.querySelectorAll('.comp-block').forEach(c=>{
+    var id=c.id.replace('cb','');
+    var url=(document.getElementById('cu'+id)||{value:''}).value.trim();
     if(!url)return;
     if(!url.startsWith('http'))url='https://'+url;
-    sites.push({name:name,url:url,isSelf:false,gbpCount:parseInt((document.getElementById('comp-gbp-count-'+id)||{value:0}).value)||0,gbpScore:parseFloat((document.getElementById('comp-gbp-score-'+id)||{value:0}).value)||0});
+    url=url.replace(/\/$/,'');
+    sites.push({name:(document.getElementById('cn'+id)||{value:''}).value.trim()||('競合'+id),url,isSelf:false,gbpCount:parseInt((document.getElementById('cg'+id)||{value:0}).value)||0,gbpScore:parseFloat((document.getElementById('cs'+id)||{value:0}).value)||0});
   });
 
   if(sites.length<2){alert('自社＋競合を少なくとも1社入力してください');return;}
-
-  var btn=document.getElementById('btn-analyze');
+  var btn=document.getElementById('bgo');
   btn.disabled=true;btn.innerHTML='<span class="sp"></span>分析中...';
-  var pw=document.getElementById('prog-wrap'),pg=document.getElementById('prog'),pm=document.getElementById('prog-msg');
-  pw.style.display='block';results=[];
+  var pw=document.getElementById('pw'),pb=document.getElementById('pb'),pm=document.getElementById('pm');
+  pw.style.display='block';RES=[];document.getElementById('MA').innerHTML='';
 
   for(var i=0;i<sites.length;i++){
-    pm.textContent='('+(i+1)+'/'+sites.length+') 分析中: '+sites[i].name;
-    pg.style.width=Math.round(i/sites.length*100)+'%';
-    results.push(await analyzeSite(sites[i]));
+    pm.textContent='('+(i+1)+'/'+sites.length+') '+sites[i].name+' を複数プロキシで分析中...';
+    pb.style.width=Math.round(i/sites.length*100)+'%';
+    RES.push(await analyze(sites[i]));
   }
-
-  pg.style.width='100%';
-  pm.textContent='分析完了！ '+results.length+'サイトを比較しました';
+  pb.style.width='100%';
+  pm.textContent='✅ 分析完了！ '+RES.length+'サイトを比較しました';
   btn.disabled=false;btn.innerHTML='🔍 競合比較を開始';
-  renderResults();
-  document.getElementById('result-section').classList.remove('hidden');
-  document.getElementById('result-section').scrollIntoView({behavior:'smooth'});
+  render();
+  document.getElementById('RS').classList.remove('hidden');
+  document.getElementById('RS').scrollIntoView({behavior:'smooth'});
 }
 
-async function analyzeSite(site){
-  var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,score:'',seoScore:0,error:false};
+async function analyze(site){
+  var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,seoScore:0,llmoScore:0,meoScore:0,sizeScore:0,totalScore:0,score:'',error:false,manual:false};
   try{
-    var html=await fp(site.url);
-    if(!html){r.error=true;return r;}
-    var p=new DOMParser();var d=p.parseFromString(html,'text/html');
+    var html=await fetchU(site.url);
+    if(!html||html.length<200){r.error=true;score(r);return r;}
+    var p=new DOMParser(),d=p.parseFromString(html,'text/html');
     r.title=(d.querySelector('title')||{textContent:''}).textContent.trim();
-    r.desc=((d.querySelector('meta[name="description"]')||{getAttribute:function(){return '';}}).getAttribute('content')||'').trim();
+    r.desc=((d.querySelector('meta[name="description"]')||{getAttribute:()=>''}).getAttribute('content')||'').trim();
     r.h1=(d.querySelector('h1')||{textContent:''}).textContent.trim();
     r.h2cnt=d.querySelectorAll('h2').length;
     r.hasOgp=!!d.querySelector('meta[property="og:title"]');
     r.hasCanonical=!!d.querySelector('link[rel="canonical"]');
     r.hasSchema=!!d.querySelector('script[type="application/ld+json"]');
     r.hasFaq=html.toLowerCase().includes('faq')||html.includes('よくある質問')||html.includes('Q&A');
-    // ページ数
     try{
-      var sm=await fp(site.url.replace(/\/$/,'')+'/sitemap.xml');
+      var sm=await fetchU(site.url+'/sitemap.xml');
       if(sm){var sd=p.parseFromString(sm,'text/xml');r.pageCnt=sd.querySelectorAll('url loc').length;}
-      if(!r.pageCnt){var wpsm=await fp(site.url.replace(/\/$/,'')+'/wp-sitemap.xml');if(wpsm){var wpd=p.parseFromString(wpsm,'text/xml');r.pageCnt=wpd.querySelectorAll('url loc,sitemap loc').length;}}
+      if(!r.pageCnt){var ws=await fetchU(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
-    // SEOスコア
-    var s=0;
-    if(r.title&&r.title.length>=20&&r.title.length<=60)s+=20;else if(r.title)s+=10;
-    if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=20;else if(r.desc)s+=10;
-    if(r.h1)s+=15;if(r.h2cnt>0)s+=10;if(r.hasOgp)s+=10;if(r.hasCanonical)s+=10;if(r.hasSchema)s+=10;if(r.hasFaq)s+=5;
-    r.seoScore=s;
-    if(s>=80)r.score='A';else if(s>=60)r.score='B';else if(s>=40)r.score='C';else r.score='D';
   }catch(e){r.error=true;}
-  return r;
+  score(r);return r;
 }
 
-function renderResults(){
-  // サマリー
-  var sg=document.getElementById('summary-grid');sg.innerHTML='';
-  var best=results.reduce(function(a,b){return b.seoScore>a.seoScore?b:a;});
-  var worst=results.reduce(function(a,b){return b.seoScore<a.seoScore?b:a;});
-  var self=results.find(function(r){return r.isSelf;})||results[0];
-  var gbpBest=results.reduce(function(a,b){return b.gbpCount>a.gbpCount?b:a;});
-  [
-    {title:'SEOスコア最高',val:best.name,sub:'スコア '+best.seoScore+'/100点',cls:'best'},
-    {title:'SEOスコア最低',val:worst.name,sub:'スコア '+worst.seoScore+'/100点',cls:'worst'},
-    {title:'GBP口コミ最多',val:gbpBest.name,sub:gbpBest.gbpCount+'件',cls:''},
-    {title:'自社のSEOスコア',val:self.seoScore+'/100点',sub:'ランク '+self.score,cls:''},
-  ].forEach(function(c){
-    var div=document.createElement('div');div.className='sum-card '+(c.cls||'');
-    div.innerHTML='<h4>'+c.title+'</h4><div class="val">'+c.val+'</div><div class="sub">'+c.sub+'</div>';
-    sg.appendChild(div);
+function score(r){
+  var s=0;
+  if(r.title&&r.title.length>=20&&r.title.length<=60)s+=25;else if(r.title)s+=12;
+  if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=25;else if(r.desc)s+=12;
+  if(r.h1)s+=20;if(r.h2cnt>0)s+=10;if(r.hasOgp)s+=10;if(r.hasCanonical)s+=10;
+  r.seoScore=Math.min(s,100);
+  r.llmoScore=Math.min((r.hasSchema?50:0)+(r.hasFaq?50:0),100);
+  var m=0;
+  if(r.gbpCount>=50)m+=50;else if(r.gbpCount>=20)m+=35;else if(r.gbpCount>=5)m+=20;else if(r.gbpCount>0)m+=10;
+  if(r.gbpScore>=4.5)m+=50;else if(r.gbpScore>=4.0)m+=35;else if(r.gbpScore>=3.5)m+=20;else if(r.gbpScore>0)m+=10;
+  r.meoScore=Math.min(m,100);
+  var z=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
+  r.sizeScore=z;
+  r.totalScore=Math.round(r.seoScore*0.35+r.llmoScore*0.2+r.meoScore*0.3+r.sizeScore*0.15);
+  r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
+}
+
+function render(){renderSum();renderCharts();renderTable();renderManual();}
+
+function renderSum(){
+  var sg=document.getElementById('SG');sg.innerHTML='';
+  var best=RES.reduce((a,b)=>b.totalScore>a.totalScore?b:a);
+  var worst=RES.reduce((a,b)=>b.totalScore<a.totalScore?b:a);
+  var gbpB=RES.reduce((a,b)=>b.gbpCount>a.gbpCount?b:a);
+  var self=RES.find(r=>r.isSelf)||RES[0];
+  [{cls:'sum-best',icon:'🏆',t:'総合スコア最高',v:best.name,s:'スコア '+best.totalScore+'/100点'},
+   {cls:'sum-worst',icon:'⚠️',t:'総合スコア最低',v:worst.name,s:'スコア '+worst.totalScore+'/100点'},
+   {cls:'sum-gbp',icon:'⭐',t:'GBP口コミ最多',v:gbpB.name,s:gbpB.gbpCount+'件 ★'+(gbpB.gbpScore||'—')},
+   {cls:'sum-self',icon:'🏠',t:'自社の総合スコア',v:self.totalScore+'/100点',s:'ランク '+self.score+(self.error?' ※手動入力推奨':'')},
+  ].forEach(c=>{
+    var d=document.createElement('div');d.className='sum-card '+c.cls;
+    d.innerHTML='<h4>'+c.icon+' '+c.t+'</h4><div class="val">'+c.v+'</div><div class="sub">'+c.s+'</div>';
+    sg.appendChild(d);
   });
+}
 
-  // テーブル
-  var t=document.getElementById('compare-table');
-  var hdr='<thead><tr><th style="text-align:left">項目</th>';
-  results.forEach(function(r){hdr+='<th class="'+(r.isSelf?'self':'')+'">'+esc(r.name)+'<br><span style="font-size:11px;font-weight:400;opacity:.8">'+esc(r.url.replace(/https?:\/\//,'').split('/')[0])+'</span></th>';});
-  hdr+='</tr></thead>';
+function renderCharts(){
+  var cg=document.getElementById('CG');cg.innerHTML='';
+  var SC={'A':'#06d6a0','B':'#3a86ff','C':'#f4a261','D':'#e63946'};
+  RES.forEach((r,i)=>{
+    var div=document.createElement('div');div.className='chart-card';
+    var sc=r.error&&!r.manual?'—':r.score;
+    var bg=SC[sc]||'#aaa';
+    div.innerHTML='<h3>'+esc(r.name)+'</h3><span class="sbadge" style="background:'+bg+'20;color:'+bg+';border:1px solid '+bg+'">'+sc+(sc!=='—'?' ('+r.totalScore+'点)':'  取得失敗')+'</span><canvas id="rc'+i+'" style="max-height:180px"></canvas>';
+    cg.appendChild(div);
+    setTimeout(()=>{
+      new Chart(document.getElementById('rc'+i).getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','規模'],datasets:[{data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore],backgroundColor:COLS[i%COLS.length]+'33',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}]},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9}},pointLabels:{font:{size:11}}}},plugins:{legend:{display:false}},animation:{duration:600}}});
+    },100);
+  });
+  setTimeout(()=>{
+    if(RC)RC.destroy();
+    RC=new Chart(document.getElementById('RA').getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','サイト規模'],datasets:RES.map((r,i)=>({label:r.name,data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore],backgroundColor:COLS[i%COLS.length]+'22',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}))},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25}}},plugins:{legend:{position:'bottom',labels:{font:{size:12}}}},animation:{duration:800}}});
+  },200);
+}
 
-  function catRow(l){return '<tr><td class="cat-head" colspan="'+(results.length+1)+'">'+l+'</td></tr>';}
-  function row(l,fn){var r='<tr><td class="label">'+l+'</td>';results.forEach(function(s){r+='<td>'+fn(s)+'</td>';});return r+'</tr>';}
-
+function renderTable(){
+  var t=document.getElementById('CT');
+  var hdr='<thead><tr><th style="text-align:left;min-width:140px">項目</th>'+RES.map((r,i)=>'<th class="'+(r.isSelf?'sh':'')+'" style="min-width:130px">'+esc(r.name)+'<br><span style="font-size:10px;font-weight:400;opacity:.7">'+esc(r.url.replace(/https?:\/\//,'').split('/')[0])+'</span></th>').join('')+'</tr></thead>';
+  var N=RES.length;
+  function cat(l){return '<tr><td class="ch" colspan="'+(N+1)+'">'+l+'</td></tr>';}
+  function row(l,fn){return '<tr><td class="lb">'+l+'</td>'+RES.map(fn).map(v=>'<td>'+v+'</td>').join('')+'</tr>';}
+  function na(r){return r.error&&!r.manual;}
   var rows='<tbody>';
-  rows+=catRow('📈 SEO');
-  rows+=row('総合スコア',function(r){if(r.error){var i=results.indexOf(r);return '<span class="na">取得失敗</span> <button onclick="showManualInput('+i+')" style="font-size:11px;padding:2px 8px;background:#f4a261;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-top:4px">手動入力</button>';}return '<span class="sc-'+r.score+'">'+r.score+' ('+r.seoScore+'点)</span>'+(r.manual?'<span style="font-size:10px;color:#f4a261;display:block">手動入力</span>':'');});
-  rows+=row('SEOタイトル',function(r){if(r.error)return '<span class="na">—</span>';if(!r.title)return '<span class="ng">未設定</span>';var l=r.title.length;return '<span class="'+(l>=20&&l<=60?'ok':'warn')+'">'+l+'文字</span><br><span style="font-size:11px;color:#666">'+esc(r.title.slice(0,25))+(r.title.length>25?'...':'')+'</span>';});
-  rows+=row('Description',function(r){if(r.error)return '<span class="na">—</span>';if(!r.desc)return '<span class="ng">未設定</span>';var l=r.desc.length;return '<span class="'+(l>=50&&l<=120?'ok':'warn')+'">'+l+'文字</span>';});
-  rows+=row('H1タグ',function(r){return r.error?'<span class="na">—</span>':r.h1?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>';});
-  rows+=row('H2タグ数',function(r){return r.error?'<span class="na">—</span>':r.h2cnt>0?'<span class="ok">'+r.h2cnt+'個</span>':'<span class="ng">0個</span>';});
-  rows+=row('OGP設定',function(r){return r.error?'<span class="na">—</span>':r.hasOgp?'<span class="ok">✓</span>':'<span class="ng">✗</span>';});
-  rows+=row('canonical',function(r){return r.error?'<span class="na">—</span>':r.hasCanonical?'<span class="ok">✓</span>':'<span class="ng">✗</span>';});
-  rows+=catRow('🤖 LLMO（AI検索最適化）');
-  rows+=row('構造化データ',function(r){return r.error?'<span class="na">—</span>':r.hasSchema?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>';});
-  rows+=row('FAQ・Q&A',function(r){return r.error?'<span class="na">—</span>':r.hasFaq?'<span class="ok">✓ あり</span>':'<span class="warn">要確認</span>';});
-  rows+=catRow('📍 MEO（Googleビジネスプロフィール）');
-  rows+=row('口コミ数',function(r){var max=Math.max.apply(null,results.map(function(x){return x.gbpCount;}));return r.gbpCount?'<span class="'+(r.gbpCount===max?'ok':r.gbpCount===0?'ng':'')+'">'+r.gbpCount+'件</span>':'<span class="na">未入力</span>';});
-  rows+=row('評点（★）',function(r){if(!r.gbpScore)return '<span class="na">未入力</span>';var max=Math.max.apply(null,results.map(function(x){return x.gbpScore;}));return '<span class="'+(r.gbpScore===max?'ok':r.gbpScore<4?'ng':'')+'">★'+r.gbpScore.toFixed(1)+'</span>';});
-  rows+=catRow('📊 サイト規模');
-  rows+=row('推定ページ数',function(r){return r.error?'<span class="na">—</span>':r.pageCnt?r.pageCnt+'件':'<span class="na">取得できず</span>';});
-  var selfPages=(results.find(function(r){return r.isSelf;})||{pageCnt:0}).pageCnt;
-  rows+=row('自社比（ページ数）',function(r){if(!selfPages||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（1.0）</span>';var ratio=(r.pageCnt/selfPages).toFixed(1);return '<span style="font-weight:700;color:'+(ratio>1.5?'#e63946':ratio>1?'#f4a261':'#06d6a0')+'">'+ratio+'倍</span>';});
+  rows+=cat('📈 SEO');
+  rows+=row('総合スコア',r=>na(r)?'<span class="na">—</span>':'<span class="sc'+r.score+'">'+r.score+' ('+r.totalScore+'点)</span>');
+  rows+=row('SEOタイトル',r=>{if(na(r))return '<span class="na">—</span>';if(!r.title)return '<span class="ng">未設定</span>';var l=r.title.length;return '<span class="'+(l>=20&&l<=60?'ok':'warn')+'">'+l+'文字</span><br><span style="font-size:11px;color:#888">'+esc(r.title.slice(0,22))+(r.title.length>22?'...':'')+'</span>';});
+  rows+=row('Description',r=>{if(na(r))return '<span class="na">—</span>';if(!r.desc)return '<span class="ng">未設定</span>';var l=r.desc.length;return '<span class="'+(l>=50&&l<=120?'ok':'warn')+'">'+l+'文字</span>';});
+  rows+=row('H1タグ',r=>na(r)?'<span class="na">—</span>':r.h1?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>');
+  rows+=row('H2タグ数',r=>na(r)?'<span class="na">—</span>':r.h2cnt>0?'<span class="ok">'+r.h2cnt+'個</span>':'<span class="ng">0個</span>');
+  rows+=row('OGP設定',r=>na(r)?'<span class="na">—</span>':r.hasOgp?'<span class="ok">✓</span>':'<span class="ng">✗</span>');
+  rows+=row('canonical',r=>na(r)?'<span class="na">—</span>':r.hasCanonical?'<span class="ok">✓</span>':'<span class="ng">✗</span>');
+  rows+=cat('🤖 LLMO（AI検索最適化）');
+  rows+=row('構造化データ',r=>na(r)?'<span class="na">—</span>':r.hasSchema?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>');
+  rows+=row('FAQ・Q&A',r=>na(r)?'<span class="na">—</span>':r.hasFaq?'<span class="ok">✓ あり</span>':'<span class="warn">要確認</span>');
+  rows+=cat('📍 MEO');
+  rows+=row('口コミ数',r=>{var mx=Math.max(...RES.map(x=>x.gbpCount));return r.gbpCount?'<span class="'+(r.gbpCount===mx?'ok':'')+'">'+r.gbpCount+'件</span>':'<span class="na">未入力</span>';});
+  rows+=row('評点（★）',r=>{if(!r.gbpScore)return '<span class="na">未入力</span>';var mx=Math.max(...RES.map(x=>x.gbpScore));return '<span class="'+(r.gbpScore===mx?'ok':r.gbpScore<4?'ng':'')+'">★'+r.gbpScore.toFixed(1)+'</span>';});
+  rows+=cat('📊 サイト規模');
+  rows+=row('推定ページ数',r=>na(r)?'<span class="na">—</span>':r.pageCnt?r.pageCnt+'件':'<span class="na">取得できず</span>');
+  var sp=(RES.find(r=>r.isSelf)||{pageCnt:0}).pageCnt;
+  rows+=row('自社比（ページ数）',r=>{if(!sp||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（×1.0）</span>';var rt=(r.pageCnt/sp).toFixed(1);return '<span style="font-weight:700;color:'+(rt>1.5?'#e63946':rt>1?'#f4a261':'#06d6a0')+'">×'+rt+'</span>';});
   rows+='</tbody>';
   t.innerHTML=hdr+rows;
 }
 
-function showManualInput(idx){
-  var r=results[idx];
-  var existing=document.getElementById('manual-'+idx);
-  if(existing){existing.remove();return;}
+function renderManual(){
+  var area=document.getElementById('MA');area.innerHTML='';
+  var failed=RES.filter(r=>r.error&&!r.manual);
+  if(!failed.length)return;
   var div=document.createElement('div');
-  div.id='manual-'+idx;
-  div.style.cssText='margin-top:8px;padding:12px;background:#fff8f0;border:1px solid #f4a261;border-radius:8px;font-size:13px;';
-  div.innerHTML='<div style="font-weight:700;color:#f4a261;margin-bottom:10px">📝 手動入力（取得失敗のため）</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">SEOタイトル</label><input type="text" id="m-title-'+idx+'" placeholder="ページタイトル" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">タイトル文字数</label><input type="number" id="m-tlen-'+idx+'" placeholder="自動計算" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px" oninput=""></div>'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Description</label><input type="text" id="m-desc-'+idx+'" placeholder="メタディスクリプション" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">H1テキスト</label><input type="text" id="m-h1-'+idx+'" placeholder="H1見出し" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">H2タグ数</label><input type="number" id="m-h2-'+idx+'" placeholder="例：5" min="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
-    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">推定ページ数</label><input type="number" id="m-pages-'+idx+'" placeholder="例：30" min="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+  div.style.cssText='margin-top:16px;padding:14px 18px;background:#fff8f0;border:2px solid #f4a261;border-radius:12px';
+  div.innerHTML='<p style="font-size:13px;font-weight:700;color:#f4a261;margin-bottom:10px">⚠️ 以下のサイトは自動取得できませんでした。手動入力で補完できます。</p><div style="display:flex;gap:8px;flex-wrap:wrap">'+failed.map(r=>{var i=RES.indexOf(r);return '<button onclick="openManual('+i+')" style="padding:8px 16px;background:#f4a261;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✏️ '+esc(r.name)+'</button>';}).join('')+'</div>';
+  area.appendChild(div);
+}
+
+function openManual(idx){
+  var r=RES[idx];
+  var ex=document.getElementById('mp'+idx);if(ex){ex.remove();return;}
+  var panel=document.createElement('div');panel.className='manual-panel';panel.id='mp'+idx;
+  panel.innerHTML='<h4>✏️ '+esc(r.name)+' — 手動入力</h4>'+
+    '<p style="font-size:12px;color:#888;margin-bottom:8px">以下のリンクでサイトを確認して入力してください</p>'+
+    '<div class="elinks">'+
+      '<a href="'+r.url+'" target="_blank" class="elink">🌐 サイトを開く</a>'+
+      '<a href="https://pagespeed.web.dev/analysis?url='+encodeURIComponent(r.url)+'" target="_blank" class="elink">⚡ PageSpeed</a>'+
+      '<a href="https://search.google.com/test/rich-results?url='+encodeURIComponent(r.url)+'" target="_blank" class="elink">📊 構造化データ確認</a>'+
     '</div>'+
-    '<div style="display:flex;gap:8px;margin-top:8px">'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-ogp-'+idx+'"> OGP設定あり</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-can-'+idx+'"> canonical設定あり</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-schema-'+idx+'"> 構造化データあり</label>'+
-    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-faq-'+idx+'"> FAQ・Q&Aあり</label>'+
+    '<div class="mg3">'+
+      '<div class="field"><label>SEOタイトル</label><input type="text" id="mt'+idx+'" placeholder="titleタグの内容" oninput="document.getElementById(\'mtl'+idx+'\').value=this.value.length||\'\'"></div>'+
+      '<div class="field"><label>タイトル文字数（自動）</label><input type="number" id="mtl'+idx+'" readonly style="background:#f5f5f5"></div>'+
+      '<div class="field"><label>Description文字数</label><input type="number" id="mdl'+idx+'" placeholder="例：85" min="0"></div>'+
+      '<div class="field"><label>H1テキスト</label><input type="text" id="mh1'+idx+'" placeholder="H1見出し"></div>'+
+      '<div class="field"><label>H2タグ数</label><input type="number" id="mh2'+idx+'" placeholder="例：5" min="0"></div>'+
+      '<div class="field"><label>推定ページ数</label><input type="number" id="mpg'+idx+'" placeholder="例：30" min="0"></div>'+
     '</div>'+
-    '<button onclick="applyManual('+idx+')" style="margin-top:10px;padding:7px 16px;background:#3a86ff;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">✓ 反映して再集計</button>';
-  var cell=document.querySelector('#compare-table tbody tr:first-child td:nth-child('+(idx+2)+')');
-  if(cell)cell.closest('tr').after(div);
-  else document.getElementById('compare-table').after(div);
+    '<div class="mchecks">'+
+      '<label><input type="checkbox" id="mog'+idx+'"> OGP設定あり</label>'+
+      '<label><input type="checkbox" id="mca'+idx+'"> canonical設定あり</label>'+
+      '<label><input type="checkbox" id="msc'+idx+'"> 構造化データあり</label>'+
+      '<label><input type="checkbox" id="mfq'+idx+'"> FAQ・Q&Aあり</label>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button onclick="applyManual('+idx+')" style="padding:9px 20px;background:#3a86ff;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">✓ 反映して再集計</button>'+
+      '<button onclick="document.getElementById(\'mp'+idx+'\').remove()" style="padding:9px 16px;background:#eee;color:#666;border:none;border-radius:8px;font-size:13px;cursor:pointer">キャンセル</button>'+
+    '</div>';
+  document.getElementById('MA').appendChild(panel);
+  panel.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function applyManual(idx){
-  var r=results[idx];
-  var title=document.getElementById('m-title-'+idx).value.trim();
-  var desc=document.getElementById('m-desc-'+idx).value.trim();
-  var h1=document.getElementById('m-h1-'+idx).value.trim();
-  var h2=parseInt(document.getElementById('m-h2-'+idx).value)||0;
-  var pages=parseInt(document.getElementById('m-pages-'+idx).value)||0;
-  var ogp=document.getElementById('m-ogp-'+idx).checked;
-  var can=document.getElementById('m-can-'+idx).checked;
-  var schema=document.getElementById('m-schema-'+idx).checked;
-  var faq=document.getElementById('m-faq-'+idx).checked;
-
-  r.title=title;r.desc=desc;r.h1=h1;r.h2cnt=h2;r.pageCnt=pages;
-  r.hasOgp=ogp;r.hasCanonical=can;r.hasSchema=schema;r.hasFaq=faq;
+  var r=RES[idx];
+  var title=document.getElementById('mt'+idx).value.trim();
+  var dl=parseInt(document.getElementById('mdl'+idx).value)||0;
+  r.title=title;r.desc=dl?'x'.repeat(dl):'';
+  r.h1=document.getElementById('mh1'+idx).value.trim();
+  r.h2cnt=parseInt(document.getElementById('mh2'+idx).value)||0;
+  r.pageCnt=parseInt(document.getElementById('mpg'+idx).value)||0;
+  r.hasOgp=document.getElementById('mog'+idx).checked;
+  r.hasCanonical=document.getElementById('mca'+idx).checked;
+  r.hasSchema=document.getElementById('msc'+idx).checked;
+  r.hasFaq=document.getElementById('mfq'+idx).checked;
   r.error=false;r.manual=true;
-
-  // スコア再計算
-  var s=0;
-  if(r.title&&r.title.length>=20&&r.title.length<=60)s+=20;else if(r.title)s+=10;
-  if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=20;else if(r.desc)s+=10;
-  if(r.h1)s+=15;if(r.h2cnt>0)s+=10;if(r.hasOgp)s+=10;if(r.hasCanonical)s+=10;if(r.hasSchema)s+=10;if(r.hasFaq)s+=5;
-  r.seoScore=s;
-  if(s>=80)r.score='A';else if(s>=60)r.score='B';else if(s>=40)r.score='C';else r.score='D';
-
-  document.getElementById('manual-'+idx).remove();
-  renderResults();
-  alert(r.name+' のデータを反映しました！');
+  score(r);
+  document.getElementById('mp'+idx).remove();
+  render();
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function dlCSV(){
   var B='\uFEFF';
-  var industry=document.getElementById('industry').value||'';
-  var area=document.getElementById('area').value||'';
-  var selfPages=(results.find(function(r){return r.isSelf;})||{pageCnt:0}).pageCnt;
+  var sp=(RES.find(r=>r.isSelf)||{pageCnt:0}).pageCnt;
   var rows=[
-    ['項目'].concat(results.map(function(r){return r.name;})),
-    ['業種'].concat(results.map(function(){return industry;})),
-    ['エリア'].concat(results.map(function(){return area;})),
-    ['URL'].concat(results.map(function(r){return r.url;})),
-    [''],['=== SEO ==='],
-    ['総合スコア'].concat(results.map(function(r){return r.error?'取得失敗':r.score+' ('+r.seoScore+'点)';})),
-    ['SEOタイトル文字数'].concat(results.map(function(r){return r.title?r.title.length+'文字':'未設定';})),
-    ['SEOタイトル内容'].concat(results.map(function(r){return r.title||'未設定';})),
-    ['Description文字数'].concat(results.map(function(r){return r.desc?r.desc.length+'文字':'未設定';})),
-    ['H1タグ'].concat(results.map(function(r){return r.h1?'あり':'なし';})),
-    ['H2タグ数'].concat(results.map(function(r){return r.h2cnt+'個';})),
-    ['OGP設定'].concat(results.map(function(r){return r.hasOgp?'あり':'なし';})),
-    ['canonical'].concat(results.map(function(r){return r.hasCanonical?'あり':'なし';})),
+    ['項目',...RES.map(r=>r.name)],
+    ['業種',...RES.map(()=>document.getElementById('industry').value)],
+    ['エリア',...RES.map(()=>document.getElementById('area').value)],
+    ['URL',...RES.map(r=>r.url)],
+    [''],['=== 総合 ==='],
+    ['総合スコア',...RES.map(r=>r.error&&!r.manual?'取得失敗':r.score+' ('+r.totalScore+'点)')],
+    ['SEOスコア',...RES.map(r=>r.seoScore+'点')],
+    ['LLMOスコア',...RES.map(r=>r.llmoScore+'点')],
+    ['MEOスコア',...RES.map(r=>r.meoScore+'点')],
+    ['サイト規模スコア',...RES.map(r=>r.sizeScore+'点')],
+    [''],['=== SEO詳細 ==='],
+    ['タイトル文字数',...RES.map(r=>r.title?r.title.length+'文字':'未設定')],
+    ['タイトル内容',...RES.map(r=>r.title||'未設定')],
+    ['Description文字数',...RES.map(r=>r.desc?r.desc.length+'文字':'未設定')],
+    ['H1タグ',...RES.map(r=>r.h1?'あり':'なし')],
+    ['H2タグ数',...RES.map(r=>r.h2cnt+'個')],
+    ['OGP',...RES.map(r=>r.hasOgp?'あり':'なし')],
+    ['canonical',...RES.map(r=>r.hasCanonical?'あり':'なし')],
     [''],['=== LLMO ==='],
-    ['構造化データ'].concat(results.map(function(r){return r.hasSchema?'あり':'なし';})),
-    ['FAQ・Q&A'].concat(results.map(function(r){return r.hasFaq?'あり':'要確認';})),
+    ['構造化データ',...RES.map(r=>r.hasSchema?'あり':'なし')],
+    ['FAQ・Q&A',...RES.map(r=>r.hasFaq?'あり':'要確認')],
     [''],['=== MEO ==='],
-    ['GBP口コミ数'].concat(results.map(function(r){return r.gbpCount||'未入力';})),
-    ['GBP評点'].concat(results.map(function(r){return r.gbpScore?'★'+r.gbpScore:'未入力';})),
+    ['口コミ数',...RES.map(r=>r.gbpCount||'未入力')],
+    ['評点',...RES.map(r=>r.gbpScore?'★'+r.gbpScore:'未入力')],
     [''],['=== サイト規模 ==='],
-    ['推定ページ数'].concat(results.map(function(r){return r.pageCnt||'取得できず';})),
-    ['自社比（ページ数）'].concat(results.map(function(r){if(!selfPages||!r.pageCnt)return '—';if(r.isSelf)return '基準(1.0)';return (r.pageCnt/selfPages).toFixed(1)+'倍';})),
+    ['推定ページ数',...RES.map(r=>r.pageCnt||'取得できず')],
+    ['自社比',...RES.map(r=>{if(!sp||!r.pageCnt)return '—';if(r.isSelf)return '基準(×1.0)';return '×'+(r.pageCnt/sp).toFixed(1);})],
   ];
-  var csv=B+rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var csv=B+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   var bl=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='競合比較レポート_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  var a=document.createElement('a');a.href=URL.createObjectURL(bl);
+  a.download='競合比較レポート_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
 }
 </script>
 </body>
