@@ -259,7 +259,7 @@ function renderResults(){
 
   var rows='<tbody>';
   rows+=catRow('📈 SEO');
-  rows+=row('総合スコア',function(r){return r.error?'<span class="na">取得失敗</span>':'<span class="sc-'+r.score+'">'+r.score+' ('+r.seoScore+'点)</span>';});
+  rows+=row('総合スコア',function(r){if(r.error){var i=results.indexOf(r);return '<span class="na">取得失敗</span> <button onclick="showManualInput('+i+')" style="font-size:11px;padding:2px 8px;background:#f4a261;color:#fff;border:none;border-radius:4px;cursor:pointer;margin-top:4px">手動入力</button>';}return '<span class="sc-'+r.score+'">'+r.score+' ('+r.seoScore+'点)</span>'+(r.manual?'<span style="font-size:10px;color:#f4a261;display:block">手動入力</span>':'');});
   rows+=row('SEOタイトル',function(r){if(r.error)return '<span class="na">—</span>';if(!r.title)return '<span class="ng">未設定</span>';var l=r.title.length;return '<span class="'+(l>=20&&l<=60?'ok':'warn')+'">'+l+'文字</span><br><span style="font-size:11px;color:#666">'+esc(r.title.slice(0,25))+(r.title.length>25?'...':'')+'</span>';});
   rows+=row('Description',function(r){if(r.error)return '<span class="na">—</span>';if(!r.desc)return '<span class="ng">未設定</span>';var l=r.desc.length;return '<span class="'+(l>=50&&l<=120?'ok':'warn')+'">'+l+'文字</span>';});
   rows+=row('H1タグ',function(r){return r.error?'<span class="na">—</span>':r.h1?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>';});
@@ -278,6 +278,63 @@ function renderResults(){
   rows+=row('自社比（ページ数）',function(r){if(!selfPages||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（1.0）</span>';var ratio=(r.pageCnt/selfPages).toFixed(1);return '<span style="font-weight:700;color:'+(ratio>1.5?'#e63946':ratio>1?'#f4a261':'#06d6a0')+'">'+ratio+'倍</span>';});
   rows+='</tbody>';
   t.innerHTML=hdr+rows;
+}
+
+function showManualInput(idx){
+  var r=results[idx];
+  var existing=document.getElementById('manual-'+idx);
+  if(existing){existing.remove();return;}
+  var div=document.createElement('div');
+  div.id='manual-'+idx;
+  div.style.cssText='margin-top:8px;padding:12px;background:#fff8f0;border:1px solid #f4a261;border-radius:8px;font-size:13px;';
+  div.innerHTML='<div style="font-weight:700;color:#f4a261;margin-bottom:10px">📝 手動入力（取得失敗のため）</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">SEOタイトル</label><input type="text" id="m-title-'+idx+'" placeholder="ページタイトル" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">タイトル文字数</label><input type="number" id="m-tlen-'+idx+'" placeholder="自動計算" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px" oninput=""></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Description</label><input type="text" id="m-desc-'+idx+'" placeholder="メタディスクリプション" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">H1テキスト</label><input type="text" id="m-h1-'+idx+'" placeholder="H1見出し" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">H2タグ数</label><input type="number" id="m-h2-'+idx+'" placeholder="例：5" min="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+    '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">推定ページ数</label><input type="number" id="m-pages-'+idx+'" placeholder="例：30" min="0" style="width:100%;padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-top:8px">'+
+    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-ogp-'+idx+'"> OGP設定あり</label>'+
+    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-can-'+idx+'"> canonical設定あり</label>'+
+    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-schema-'+idx+'"> 構造化データあり</label>'+
+    '<label style="display:flex;align-items:center;gap:4px;font-size:12px"><input type="checkbox" id="m-faq-'+idx+'"> FAQ・Q&Aあり</label>'+
+    '</div>'+
+    '<button onclick="applyManual('+idx+')" style="margin-top:10px;padding:7px 16px;background:#3a86ff;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">✓ 反映して再集計</button>';
+  var cell=document.querySelector('#compare-table tbody tr:first-child td:nth-child('+(idx+2)+')');
+  if(cell)cell.closest('tr').after(div);
+  else document.getElementById('compare-table').after(div);
+}
+
+function applyManual(idx){
+  var r=results[idx];
+  var title=document.getElementById('m-title-'+idx).value.trim();
+  var desc=document.getElementById('m-desc-'+idx).value.trim();
+  var h1=document.getElementById('m-h1-'+idx).value.trim();
+  var h2=parseInt(document.getElementById('m-h2-'+idx).value)||0;
+  var pages=parseInt(document.getElementById('m-pages-'+idx).value)||0;
+  var ogp=document.getElementById('m-ogp-'+idx).checked;
+  var can=document.getElementById('m-can-'+idx).checked;
+  var schema=document.getElementById('m-schema-'+idx).checked;
+  var faq=document.getElementById('m-faq-'+idx).checked;
+
+  r.title=title;r.desc=desc;r.h1=h1;r.h2cnt=h2;r.pageCnt=pages;
+  r.hasOgp=ogp;r.hasCanonical=can;r.hasSchema=schema;r.hasFaq=faq;
+  r.error=false;r.manual=true;
+
+  // スコア再計算
+  var s=0;
+  if(r.title&&r.title.length>=20&&r.title.length<=60)s+=20;else if(r.title)s+=10;
+  if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=20;else if(r.desc)s+=10;
+  if(r.h1)s+=15;if(r.h2cnt>0)s+=10;if(r.hasOgp)s+=10;if(r.hasCanonical)s+=10;if(r.hasSchema)s+=10;if(r.hasFaq)s+=5;
+  r.seoScore=s;
+  if(s>=80)r.score='A';else if(s>=60)r.score='B';else if(s>=40)r.score='C';else r.score='D';
+
+  document.getElementById('manual-'+idx).remove();
+  renderResults();
+  alert(r.name+' のデータを反映しました！');
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
