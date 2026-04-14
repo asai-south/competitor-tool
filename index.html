@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>競合サイト比較ツール</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:sans-serif;background:#f4f6f9;color:#1a1a2e}
+header{background:#1a1a2e;color:#fff;padding:16px 24px}
+header h1{font-size:18px}
+header p{font-size:12px;color:#aaa;margin-top:4px}
+.wrap{max-width:1100px;margin:0 auto;padding:24px}
+.card{background:#fff;border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card h2{font-size:15px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.badge{font-size:11px;background:#3a86ff;color:#fff;padding:2px 8px;border-radius:20px;font-weight:500}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{margin-bottom:12px}
+.field label{font-size:12px;color:#666;display:block;margin-bottom:4px;font-weight:600}
+.field input{width:100%;padding:10px 14px;border:2px solid #ddd;border-radius:8px;font-size:14px;transition:border .2s}
+.field input:focus{outline:none;border-color:#3a86ff}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.blue{background:#3a86ff;color:#fff}.blue:hover{background:#2563eb}.blue:disabled{background:#aaa;cursor:not-allowed}
+.green{background:#06d6a0;color:#fff}
+.out{background:#fff;color:#3a86ff;border:2px solid #3a86ff}
+.ac{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.competitor-block{background:#f8f9ff;border:2px solid #e0e4ee;border-radius:10px;padding:16px;margin-bottom:12px;position:relative}
+.competitor-block h3{font-size:13px;font-weight:700;color:#3a86ff;margin-bottom:10px}
+.self-block{background:#f0fdf9;border:2px solid #06d6a0;border-radius:10px;padding:16px;margin-bottom:12px}
+.self-block h3{font-size:13px;font-weight:700;color:#06d6a0;margin-bottom:10px}
+.remove-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:#e63946;cursor:pointer;font-size:18px;line-height:1}
+.bw{height:6px;background:#eee;border-radius:3px;margin:10px 0;display:none}
+.bv{height:100%;background:#3a86ff;border-radius:3px;transition:width .3s}
+.mg{font-size:13px;color:#666;margin:6px 0}
+.hidden{display:none}
+.sp{display:inline-block;width:13px;height:13px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.compare-wrap{overflow-x:auto;margin-top:8px}
+.compare-table{border-collapse:collapse;font-size:13px;min-width:700px;width:100%}
+.compare-table th{background:#1a1a2e;color:#fff;padding:10px 14px;text-align:center;font-size:12px;white-space:nowrap}
+.compare-table th.self{background:#064e3b;color:#6ee7b7}
+.compare-table td{padding:10px 14px;border-bottom:1px solid #f0f2f7;text-align:center;vertical-align:middle}
+.compare-table td.label{text-align:left;font-weight:600;font-size:12px;color:#555;background:#f8f9ff;white-space:nowrap}
+.compare-table td.cat-head{background:#f0f2f7;font-weight:700;font-size:12px;color:#1a1a2e;text-align:left;padding:8px 14px;letter-spacing:.5px}
+.compare-table tr:hover td:not(.cat-head):not(.label){background:#fafbff}
+.ok{color:#06d6a0;font-weight:700}
+.ng{color:#e63946;font-weight:700}
+.warn{color:#f4a261;font-weight:700}
+.na{color:#aaa;font-size:12px}
+.sc-A{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#f0fdf9;color:#06d6a0;border:1px solid #06d6a0}
+.sc-B{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#f0f5ff;color:#3a86ff;border:1px solid #3a86ff}
+.sc-C{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#fff8f0;color:#f4a261;border:1px solid #f4a261}
+.sc-D{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;background:#fff0f0;color:#e63946;border:1px solid #e63946}
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:20px}
+.sum-card{background:#fff;border-radius:10px;padding:16px;box-shadow:0 2px 6px rgba(0,0,0,.05);border-left:4px solid #3a86ff}
+.sum-card.best{border-left-color:#06d6a0}
+.sum-card.worst{border-left-color:#e63946}
+.sum-card h4{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.sum-card .val{font-size:20px;font-weight:700;color:#1a1a2e}
+.sum-card .sub{font-size:12px;color:#666;margin-top:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>競合サイト比較ツール</h1>
+  <p>自社サイトと競合サイトのSEO・LLMO・MEO・サイト規模を横並び比較</p>
+</header>
+<div class="wrap">
+
+<div class="card">
+  <h2>① 基本情報を入力 <span class="badge">STEP 1</span></h2>
+  <div class="row2">
+    <div class="field">
+      <label>業種</label>
+      <input type="text" id="industry" placeholder="例：工務店、クリニック、リフォーム会社">
+    </div>
+    <div class="field">
+      <label>エリア</label>
+      <input type="text" id="area" placeholder="例：沖縄県那覇市、東京都渋谷区">
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>② URLを入力 <span class="badge">STEP 2</span></h2>
+  <div class="self-block">
+    <h3>🏠 自社サイト</h3>
+    <div class="row2">
+      <div class="field"><label>会社名</label><input type="text" id="self-name" placeholder="例：株式会社〇〇工務店"></div>
+      <div class="field"><label>URL</label><input type="url" id="self-url" placeholder="https://example.com"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>GBP口コミ数</label><input type="number" id="self-gbp-count" placeholder="例：24" min="0"></div>
+      <div class="field"><label>GBP評点（★）</label><input type="number" id="self-gbp-score" placeholder="例：4.2" min="0" max="5" step="0.1"></div>
+    </div>
+  </div>
+  <div id="competitors"></div>
+  <button class="btn out" onclick="addCompetitor()">＋ 競合を追加</button>
+</div>
+
+<div class="card">
+  <h2>③ 分析を実行 <span class="badge">STEP 3</span></h2>
+  <div class="ac">
+    <button class="btn blue" id="btn-analyze" onclick="startAnalysis()">🔍 競合比較を開始</button>
+  </div>
+  <div class="bw" id="prog-wrap"><div class="bv" id="prog" style="width:0%"></div></div>
+  <div class="mg" id="prog-msg"></div>
+</div>
+
+<div class="hidden" id="result-section">
+  <div class="card">
+    <h2>④ 比較サマリー <span class="badge">STEP 4</span></h2>
+    <div class="summary-grid" id="summary-grid"></div>
+  </div>
+  <div class="card">
+    <h2>⑤ 詳細比較表 <span class="badge">STEP 5</span></h2>
+    <div class="ac" style="margin-bottom:12px">
+      <button class="btn green" onclick="dlCSV()">📥 比較レポートCSV出力</button>
+    </div>
+    <div class="compare-wrap">
+      <table class="compare-table" id="compare-table"></table>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+var PX='https://api.allorigins.win/get?url=';
+var competitorCount=0;
+var results=[];
+
+window.onload=function(){addCompetitor();addCompetitor();};
+
+function addCompetitor(){
+  competitorCount++;
+  var id=competitorCount;
+  var div=document.createElement('div');
+  div.className='competitor-block';
+  div.id='comp-'+id;
+  div.innerHTML='<h3>🏢 競合 '+id+'</h3><button class="remove-btn" onclick="removeCompetitor('+id+')" title="削除">×</button><div class="row2"><div class="field"><label>会社名</label><input type="text" id="comp-name-'+id+'" placeholder="例：〇〇工務店"></div><div class="field"><label>URL</label><input type="url" id="comp-url-'+id+'" placeholder="https://example.com"></div></div><div class="row2"><div class="field"><label>GBP口コミ数</label><input type="number" id="comp-gbp-count-'+id+'" placeholder="例：45" min="0"></div><div class="field"><label>GBP評点（★）</label><input type="number" id="comp-gbp-score-'+id+'" placeholder="例：4.5" min="0" max="5" step="0.1"></div></div>';
+  document.getElementById('competitors').appendChild(div);
+}
+
+function removeCompetitor(id){
+  var el=document.getElementById('comp-'+id);
+  if(el)el.remove();
+}
+
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+async function fp(u,retry){
+  retry=retry||0;
+  try{
+    var r=await fetch(PX+encodeURIComponent(u));
+    var d=await r.json();
+    if(!d.contents&&retry<2){await sleep(1500);return fp(u,retry+1);}
+    return d.contents||'';
+  }catch(e){
+    if(retry<2){await sleep(1500);return fp(u,retry+1);}
+    return '';
+  }
+}
+
+async function startAnalysis(){
+  var sites=[];
+  var selfUrl=document.getElementById('self-url').value.trim();
+  var selfName=document.getElementById('self-name').value.trim()||'自社';
+  if(!selfUrl){alert('自社URLを入力してください');return;}
+  if(!selfUrl.startsWith('http'))selfUrl='https://'+selfUrl;
+  sites.push({name:selfName,url:selfUrl,isSelf:true,gbpCount:parseInt(document.getElementById('self-gbp-count').value)||0,gbpScore:parseFloat(document.getElementById('self-gbp-score').value)||0});
+
+  document.querySelectorAll('.competitor-block').forEach(function(c){
+    var id=c.id.replace('comp-','');
+    var url=(document.getElementById('comp-url-'+id)||{value:''}).value.trim();
+    var name=(document.getElementById('comp-name-'+id)||{value:''}).value.trim()||('競合'+id);
+    if(!url)return;
+    if(!url.startsWith('http'))url='https://'+url;
+    sites.push({name:name,url:url,isSelf:false,gbpCount:parseInt((document.getElementById('comp-gbp-count-'+id)||{value:0}).value)||0,gbpScore:parseFloat((document.getElementById('comp-gbp-score-'+id)||{value:0}).value)||0});
+  });
+
+  if(sites.length<2){alert('自社＋競合を少なくとも1社入力してください');return;}
+
+  var btn=document.getElementById('btn-analyze');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span>分析中...';
+  var pw=document.getElementById('prog-wrap'),pg=document.getElementById('prog'),pm=document.getElementById('prog-msg');
+  pw.style.display='block';results=[];
+
+  for(var i=0;i<sites.length;i++){
+    pm.textContent='('+(i+1)+'/'+sites.length+') 分析中: '+sites[i].name;
+    pg.style.width=Math.round(i/sites.length*100)+'%';
+    results.push(await analyzeSite(sites[i]));
+  }
+
+  pg.style.width='100%';
+  pm.textContent='分析完了！ '+results.length+'サイトを比較しました';
+  btn.disabled=false;btn.innerHTML='🔍 競合比較を開始';
+  renderResults();
+  document.getElementById('result-section').classList.remove('hidden');
+  document.getElementById('result-section').scrollIntoView({behavior:'smooth'});
+}
+
+async function analyzeSite(site){
+  var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,score:'',seoScore:0,error:false};
+  try{
+    var html=await fp(site.url);
+    if(!html){r.error=true;return r;}
+    var p=new DOMParser();var d=p.parseFromString(html,'text/html');
+    r.title=(d.querySelector('title')||{textContent:''}).textContent.trim();
+    r.desc=((d.querySelector('meta[name="description"]')||{getAttribute:function(){return '';}}).getAttribute('content')||'').trim();
+    r.h1=(d.querySelector('h1')||{textContent:''}).textContent.trim();
+    r.h2cnt=d.querySelectorAll('h2').length;
+    r.hasOgp=!!d.querySelector('meta[property="og:title"]');
+    r.hasCanonical=!!d.querySelector('link[rel="canonical"]');
+    r.hasSchema=!!d.querySelector('script[type="application/ld+json"]');
+    r.hasFaq=html.toLowerCase().includes('faq')||html.includes('よくある質問')||html.includes('Q&A');
+    // ページ数
+    try{
+      var sm=await fp(site.url.replace(/\/$/,'')+'/sitemap.xml');
+      if(sm){var sd=p.parseFromString(sm,'text/xml');r.pageCnt=sd.querySelectorAll('url loc').length;}
+      if(!r.pageCnt){var wpsm=await fp(site.url.replace(/\/$/,'')+'/wp-sitemap.xml');if(wpsm){var wpd=p.parseFromString(wpsm,'text/xml');r.pageCnt=wpd.querySelectorAll('url loc,sitemap loc').length;}}
+    }catch(e){}
+    // SEOスコア
+    var s=0;
+    if(r.title&&r.title.length>=20&&r.title.length<=60)s+=20;else if(r.title)s+=10;
+    if(r.desc&&r.desc.length>=50&&r.desc.length<=120)s+=20;else if(r.desc)s+=10;
+    if(r.h1)s+=15;if(r.h2cnt>0)s+=10;if(r.hasOgp)s+=10;if(r.hasCanonical)s+=10;if(r.hasSchema)s+=10;if(r.hasFaq)s+=5;
+    r.seoScore=s;
+    if(s>=80)r.score='A';else if(s>=60)r.score='B';else if(s>=40)r.score='C';else r.score='D';
+  }catch(e){r.error=true;}
+  return r;
+}
+
+function renderResults(){
+  // サマリー
+  var sg=document.getElementById('summary-grid');sg.innerHTML='';
+  var best=results.reduce(function(a,b){return b.seoScore>a.seoScore?b:a;});
+  var worst=results.reduce(function(a,b){return b.seoScore<a.seoScore?b:a;});
+  var self=results.find(function(r){return r.isSelf;})||results[0];
+  var gbpBest=results.reduce(function(a,b){return b.gbpCount>a.gbpCount?b:a;});
+  [
+    {title:'SEOスコア最高',val:best.name,sub:'スコア '+best.seoScore+'/100点',cls:'best'},
+    {title:'SEOスコア最低',val:worst.name,sub:'スコア '+worst.seoScore+'/100点',cls:'worst'},
+    {title:'GBP口コミ最多',val:gbpBest.name,sub:gbpBest.gbpCount+'件',cls:''},
+    {title:'自社のSEOスコア',val:self.seoScore+'/100点',sub:'ランク '+self.score,cls:''},
+  ].forEach(function(c){
+    var div=document.createElement('div');div.className='sum-card '+(c.cls||'');
+    div.innerHTML='<h4>'+c.title+'</h4><div class="val">'+c.val+'</div><div class="sub">'+c.sub+'</div>';
+    sg.appendChild(div);
+  });
+
+  // テーブル
+  var t=document.getElementById('compare-table');
+  var hdr='<thead><tr><th style="text-align:left">項目</th>';
+  results.forEach(function(r){hdr+='<th class="'+(r.isSelf?'self':'')+'">'+esc(r.name)+'<br><span style="font-size:11px;font-weight:400;opacity:.8">'+esc(r.url.replace(/https?:\/\//,'').split('/')[0])+'</span></th>';});
+  hdr+='</tr></thead>';
+
+  function catRow(l){return '<tr><td class="cat-head" colspan="'+(results.length+1)+'">'+l+'</td></tr>';}
+  function row(l,fn){var r='<tr><td class="label">'+l+'</td>';results.forEach(function(s){r+='<td>'+fn(s)+'</td>';});return r+'</tr>';}
+
+  var rows='<tbody>';
+  rows+=catRow('📈 SEO');
+  rows+=row('総合スコア',function(r){return r.error?'<span class="na">取得失敗</span>':'<span class="sc-'+r.score+'">'+r.score+' ('+r.seoScore+'点)</span>';});
+  rows+=row('SEOタイトル',function(r){if(r.error)return '<span class="na">—</span>';if(!r.title)return '<span class="ng">未設定</span>';var l=r.title.length;return '<span class="'+(l>=20&&l<=60?'ok':'warn')+'">'+l+'文字</span><br><span style="font-size:11px;color:#666">'+esc(r.title.slice(0,25))+(r.title.length>25?'...':'')+'</span>';});
+  rows+=row('Description',function(r){if(r.error)return '<span class="na">—</span>';if(!r.desc)return '<span class="ng">未設定</span>';var l=r.desc.length;return '<span class="'+(l>=50&&l<=120?'ok':'warn')+'">'+l+'文字</span>';});
+  rows+=row('H1タグ',function(r){return r.error?'<span class="na">—</span>':r.h1?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>';});
+  rows+=row('H2タグ数',function(r){return r.error?'<span class="na">—</span>':r.h2cnt>0?'<span class="ok">'+r.h2cnt+'個</span>':'<span class="ng">0個</span>';});
+  rows+=row('OGP設定',function(r){return r.error?'<span class="na">—</span>':r.hasOgp?'<span class="ok">✓</span>':'<span class="ng">✗</span>';});
+  rows+=row('canonical',function(r){return r.error?'<span class="na">—</span>':r.hasCanonical?'<span class="ok">✓</span>':'<span class="ng">✗</span>';});
+  rows+=catRow('🤖 LLMO（AI検索最適化）');
+  rows+=row('構造化データ',function(r){return r.error?'<span class="na">—</span>':r.hasSchema?'<span class="ok">✓ あり</span>':'<span class="ng">✗ なし</span>';});
+  rows+=row('FAQ・Q&A',function(r){return r.error?'<span class="na">—</span>':r.hasFaq?'<span class="ok">✓ あり</span>':'<span class="warn">要確認</span>';});
+  rows+=catRow('📍 MEO（Googleビジネスプロフィール）');
+  rows+=row('口コミ数',function(r){var max=Math.max.apply(null,results.map(function(x){return x.gbpCount;}));return r.gbpCount?'<span class="'+(r.gbpCount===max?'ok':r.gbpCount===0?'ng':'')+'">'+r.gbpCount+'件</span>':'<span class="na">未入力</span>';});
+  rows+=row('評点（★）',function(r){if(!r.gbpScore)return '<span class="na">未入力</span>';var max=Math.max.apply(null,results.map(function(x){return x.gbpScore;}));return '<span class="'+(r.gbpScore===max?'ok':r.gbpScore<4?'ng':'')+'">★'+r.gbpScore.toFixed(1)+'</span>';});
+  rows+=catRow('📊 サイト規模');
+  rows+=row('推定ページ数',function(r){return r.error?'<span class="na">—</span>':r.pageCnt?r.pageCnt+'件':'<span class="na">取得できず</span>';});
+  var selfPages=(results.find(function(r){return r.isSelf;})||{pageCnt:0}).pageCnt;
+  rows+=row('自社比（ページ数）',function(r){if(!selfPages||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（1.0）</span>';var ratio=(r.pageCnt/selfPages).toFixed(1);return '<span style="font-weight:700;color:'+(ratio>1.5?'#e63946':ratio>1?'#f4a261':'#06d6a0')+'">'+ratio+'倍</span>';});
+  rows+='</tbody>';
+  t.innerHTML=hdr+rows;
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function dlCSV(){
+  var B='\uFEFF';
+  var industry=document.getElementById('industry').value||'';
+  var area=document.getElementById('area').value||'';
+  var selfPages=(results.find(function(r){return r.isSelf;})||{pageCnt:0}).pageCnt;
+  var rows=[
+    ['項目'].concat(results.map(function(r){return r.name;})),
+    ['業種'].concat(results.map(function(){return industry;})),
+    ['エリア'].concat(results.map(function(){return area;})),
+    ['URL'].concat(results.map(function(r){return r.url;})),
+    [''],['=== SEO ==='],
+    ['総合スコア'].concat(results.map(function(r){return r.error?'取得失敗':r.score+' ('+r.seoScore+'点)';})),
+    ['SEOタイトル文字数'].concat(results.map(function(r){return r.title?r.title.length+'文字':'未設定';})),
+    ['SEOタイトル内容'].concat(results.map(function(r){return r.title||'未設定';})),
+    ['Description文字数'].concat(results.map(function(r){return r.desc?r.desc.length+'文字':'未設定';})),
+    ['H1タグ'].concat(results.map(function(r){return r.h1?'あり':'なし';})),
+    ['H2タグ数'].concat(results.map(function(r){return r.h2cnt+'個';})),
+    ['OGP設定'].concat(results.map(function(r){return r.hasOgp?'あり':'なし';})),
+    ['canonical'].concat(results.map(function(r){return r.hasCanonical?'あり':'なし';})),
+    [''],['=== LLMO ==='],
+    ['構造化データ'].concat(results.map(function(r){return r.hasSchema?'あり':'なし';})),
+    ['FAQ・Q&A'].concat(results.map(function(r){return r.hasFaq?'あり':'要確認';})),
+    [''],['=== MEO ==='],
+    ['GBP口コミ数'].concat(results.map(function(r){return r.gbpCount||'未入力';})),
+    ['GBP評点'].concat(results.map(function(r){return r.gbpScore?'★'+r.gbpScore:'未入力';})),
+    [''],['=== サイト規模 ==='],
+    ['推定ページ数'].concat(results.map(function(r){return r.pageCnt||'取得できず';})),
+    ['自社比（ページ数）'].concat(results.map(function(r){if(!selfPages||!r.pageCnt)return '—';if(r.isSelf)return '基準(1.0)';return (r.pageCnt/selfPages).toFixed(1)+'倍';})),
+  ];
+  var csv=B+rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var bl=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download='競合比較レポート_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+</script>
+</body>
+</html>
