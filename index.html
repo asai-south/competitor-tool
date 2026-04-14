@@ -78,6 +78,10 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 .dot-ok{background:#06d6a0}
 .dot-ng{background:#e63946}
 .dot-warn{background:#f4a261}
+.speed-bar{height:10px;background:#e0e4ee;border-radius:5px;overflow:hidden;margin-top:4px}
+.speed-fill{height:100%;border-radius:5px;transition:width .6s}
+.speed-val{font-size:18px;font-weight:700}
+.speed-label{font-size:11px;color:#888;margin-top:2px}
 </style>
 </head>
 <body>
@@ -222,6 +226,22 @@ async function analyze(site){
       if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
   }catch(e){r.error=true;}
+  // PageSpeed取得（並行して実行）
+  try {
+    var psRes = await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
+    var ps = await psRes.json();
+    if(ps.ok) {
+      r.ps = {
+        mobilePerf: ps.mobile.performance,
+        desktopPerf: ps.desktop.performance,
+        accessibility: ps.mobile.accessibility,
+        seoScore: ps.mobile.seo,
+        lcp: ps.mobile.lcp,
+        cls: ps.mobile.cls,
+        fcp: ps.mobile.fcp,
+      };
+    }
+  } catch(e) { r.ps = null; }
   calcScore(r);return r;
 }
 
@@ -237,7 +257,8 @@ function calcScore(r){
   if(r.gbpScore>=4.5)m+=50;else if(r.gbpScore>=4.0)m+=35;else if(r.gbpScore>=3.5)m+=20;else if(r.gbpScore>0)m+=10;
   r.meoScore=Math.min(m,100);
   r.sizeScore=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
-  r.totalScore=Math.round(r.seoScore*0.35+r.llmoScore*0.2+r.meoScore*0.3+r.sizeScore*0.15);
+  var speedScore=r.ps?r.ps.mobilePerf:0;
+  r.totalScore=Math.round(r.seoScore*0.3+r.llmoScore*0.15+r.meoScore*0.25+r.sizeScore*0.15+speedScore*0.15);
   r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
 }
 
@@ -270,12 +291,12 @@ function renderCharts(){
     div.innerHTML='<h3>'+esc(r.name)+'</h3><span class="sbadge" style="background:'+bg+'20;color:'+bg+';border:1px solid '+bg+'">'+sc+(sc!=='—'?' ('+r.totalScore+'点)':'  取得失敗')+'</span><canvas id="rc'+i+'" style="max-height:180px"></canvas>';
     cg.appendChild(div);
     setTimeout(()=>{
-      new Chart(document.getElementById('rc'+i).getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','規模'],datasets:[{data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore],backgroundColor:COLS[i%COLS.length]+'33',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}]},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9}},pointLabels:{font:{size:11}}}},plugins:{legend:{display:false}},animation:{duration:600}}});
+      new Chart(document.getElementById('rc'+i).getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','規模','速度'],datasets:[{data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore,r.ps?r.ps.mobilePerf:0],backgroundColor:COLS[i%COLS.length]+'33',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}]},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:9}},pointLabels:{font:{size:11}}}},plugins:{legend:{display:false}},animation:{duration:600}}});
     },100);
   });
   setTimeout(()=>{
     if(RC)RC.destroy();
-    RC=new Chart(document.getElementById('RA').getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','サイト規模'],datasets:RES.map((r,i)=>({label:r.name,data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore],backgroundColor:COLS[i%COLS.length]+'22',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}))},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25}}},plugins:{legend:{position:'bottom',labels:{font:{size:12}}}},animation:{duration:800}}});
+    RC=new Chart(document.getElementById('RA').getContext('2d'),{type:'radar',data:{labels:['SEO','LLMO','MEO','サイト規模','表示速度'],datasets:RES.map((r,i)=>({label:r.name,data:[r.seoScore,r.llmoScore,r.meoScore,r.sizeScore,r.ps?r.ps.mobilePerf:0],backgroundColor:COLS[i%COLS.length]+'22',borderColor:COLS[i%COLS.length],borderWidth:2,pointBackgroundColor:COLS[i%COLS.length]}))},options:{scales:{r:{min:0,max:100,ticks:{stepSize:25}}},plugins:{legend:{position:'bottom',labels:{font:{size:12}}}},animation:{duration:800}}});
   },200);
 }
 
@@ -304,6 +325,12 @@ function renderTable(){
   rows+=row('推定ページ数',r=>na(r)?'<span class="na">—</span>':r.pageCnt?r.pageCnt+'件':'<span class="na">取得できず</span>');
   var sp=(RES.find(r=>r.isSelf)||{pageCnt:0}).pageCnt;
   rows+=row('自社比（ページ数）',r=>{if(!sp||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（×1.0）</span>';var rt=(r.pageCnt/sp).toFixed(1);return '<span style="font-weight:700;color:'+(rt>1.5?'#e63946':rt>1?'#f4a261':'#06d6a0')+'">×'+rt+'</span>';});
+  rows+=cat('⚡ 表示速度（PageSpeed Insights）');
+  rows+=row('モバイルスコア',r=>{if(!r.ps)return '<span class="na">取得中...</span>';var s=r.ps.mobilePerf;var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
+  rows+=row('デスクトップスコア',r=>{if(!r.ps)return '<span class="na">取得中...</span>';var s=r.ps.desktopPerf;var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
+  rows+=row('LCP（最大コンテンツ描画）',r=>r.ps?'<span style="font-size:12px">'+r.ps.lcp+'</span>':'<span class="na">—</span>');
+  rows+=row('CLS（レイアウトズレ）',r=>r.ps?'<span style="font-size:12px">'+r.ps.cls+'</span>':'<span class="na">—</span>');
+  rows+=row('アクセシビリティ',r=>{if(!r.ps)return '<span class="na">—</span>';var s=r.ps.accessibility;return '<span class="'+(s>=90?'ok':s>=50?'warn':'ng')+'">'+s+'点</span>';});
   rows+='</tbody>';
   t.innerHTML=hdr+rows;
 }
@@ -401,6 +428,12 @@ function dlCSV(){
     [''],['=== サイト規模 ==='],
     ['推定ページ数',...RES.map(r=>r.pageCnt||'取得できず')],
     ['自社比',...RES.map(r=>{if(!sp||!r.pageCnt)return '—';if(r.isSelf)return '基準(×1.0)';return '×'+(r.pageCnt/sp).toFixed(1);})],
+    [''],['=== 表示速度 ==='],
+    ['モバイルスコア',...RES.map(r=>r.ps?r.ps.mobilePerf+'点':'未取得')],
+    ['デスクトップスコア',...RES.map(r=>r.ps?r.ps.desktopPerf+'点':'未取得')],
+    ['LCP',...RES.map(r=>r.ps?r.ps.lcp:'—')],
+    ['CLS',...RES.map(r=>r.ps?r.ps.cls:'—')],
+    ['アクセシビリティ',...RES.map(r=>r.ps?r.ps.accessibility+'点':'—')],
   ];
   var csv=B+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   var bl=new Blob([csv],{type:'text/csv;charset=utf-8;'});
