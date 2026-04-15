@@ -9,38 +9,30 @@ export default async function handler(req, res) {
   const keyParam = apiKey ? `&key=${apiKey}` : '';
 
   try {
-    const base = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
-    const [mobileRes, desktopRes] = await Promise.all([
-      fetch(`${base}?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=accessibility&category=seo${keyParam}`, {
-        signal: AbortSignal.timeout(25000),
-      }),
-      fetch(`${base}?url=${encodeURIComponent(url)}&strategy=desktop&category=performance${keyParam}`, {
-        signal: AbortSignal.timeout(25000),
-      }),
-    ]);
+    // モバイルのみ取得（速度優先）
+    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=accessibility${keyParam}`;
+    
+    const r = await fetch(apiUrl, {
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = await r.json();
 
-    const [mobile, desktop] = await Promise.all([mobileRes.json(), desktopRes.json()]);
+    if(data.error) {
+      return res.status(200).json({ ok: false, error: data.error.message });
+    }
 
-    const extract = (data) => {
-      const cats = data?.lighthouseResult?.categories || {};
-      const audits = data?.lighthouseResult?.audits || {};
-      const getScore = (cat) => cat?.score != null ? Math.round(cat.score * 100) : null;
-      return {
-        performance: getScore(cats.performance),
-        accessibility: getScore(cats.accessibility),
-        seo: getScore(cats.seo),
-        lcp: audits['largest-contentful-paint']?.displayValue || null,
-        tbt: audits['total-blocking-time']?.displayValue || null,
-        cls: audits['cumulative-layout-shift']?.displayValue || null,
-        fcp: audits['first-contentful-paint']?.displayValue || null,
-        si: audits['speed-index']?.displayValue || null,
-      };
-    };
+    const cats = data?.lighthouseResult?.categories || {};
+    const audits = data?.lighthouseResult?.audits || {};
+    const getScore = (cat) => cat?.score != null ? Math.round(cat.score * 100) : null;
 
     res.status(200).json({
       ok: true,
-      mobile: extract(mobile),
-      desktop: extract(desktop),
+      performance: getScore(cats.performance),
+      accessibility: getScore(cats.accessibility),
+      lcp: audits['largest-contentful-paint']?.displayValue || null,
+      cls: audits['cumulative-layout-shift']?.displayValue || null,
+      fcp: audits['first-contentful-paint']?.displayValue || null,
+      tbt: audits['total-blocking-time']?.displayValue || null,
     });
   } catch (e) {
     res.status(200).json({ ok: false, error: e.message });
