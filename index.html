@@ -135,8 +135,18 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
     <div class="chart-grid" id="CG"></div>
     <canvas id="RA" style="max-height:380px;max-width:500px;margin:24px auto 0;display:block"></canvas>
   </div>
+  <div class="card" id="ps-card">
+    <h2>⑥ 表示速度を計測 <span class="badge">オプション</span></h2>
+    <p style="font-size:13px;color:#666;margin-bottom:14px">1サイトあたり30〜60秒かかります。順番に取得するので気長にお待ちください。</p>
+    <div class="ac">
+      <button class="btn blue" id="btn-ps" onclick="startPageSpeed()">⚡ 速度を計測する</button>
+    </div>
+    <div class="bw" id="ps-pw"><div class="bv" id="ps-pb" style="width:0%"></div></div>
+    <div class="mg" id="ps-pm"></div>
+  </div>
+
   <div class="card">
-    <h2>⑥ 詳細比較表 <span class="badge">STEP 6</span></h2>
+    <h2>⑦ 詳細比較表 <span class="badge">STEP 6</span></h2>
     <div class="ac" style="margin-bottom:14px">
       <button class="btn green" onclick="dlCSV()">📥 比較レポートCSV出力</button>
     </div>
@@ -226,21 +236,7 @@ async function analyze(site){
       if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
   }catch(e){r.error=true;}
-  // PageSpeed取得
-  try {
-    var psRes = await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
-    var ps = await psRes.json();
-    if(ps.ok) {
-      r.ps = {
-        mobilePerf: ps.performance,
-        accessibility: ps.accessibility,
-        lcp: ps.lcp,
-        cls: ps.cls,
-        fcp: ps.fcp,
-        tbt: ps.tbt,
-      };
-    }
-  } catch(e) { r.ps = null; }
+  // PageSpeedは別途ボタンで取得
   calcScore(r);return r;
 }
 
@@ -393,6 +389,43 @@ function applyManual(idx){
   calcScore(r);
   document.getElementById('mp'+idx).remove();
   render();
+}
+
+async function startPageSpeed(){
+  var btn=document.getElementById('btn-ps');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span>計測中...';
+  var pw=document.getElementById('ps-pw'),pb=document.getElementById('ps-pb'),pm=document.getElementById('ps-pm');
+  pw.style.display='block';
+
+  for(var i=0;i<RES.length;i++){
+    var r=RES[i];
+    pm.textContent='('+(i+1)+'/'+RES.length+') '+r.name+' を計測中... （30〜60秒かかります）';
+    pb.style.width=Math.round(i/RES.length*100)+'%';
+    try{
+      var psRes=await fetch('/api/pagespeed?url='+encodeURIComponent(r.url));
+      var ps=await psRes.json();
+      if(ps.ok){
+        r.ps={
+          mobilePerf:ps.performance,
+          accessibility:ps.accessibility,
+          lcp:ps.lcp,
+          cls:ps.cls,
+          fcp:ps.fcp,
+          tbt:ps.tbt,
+        };
+      } else {
+        r.ps=null;
+        pm.textContent='('+(i+1)+'/'+RES.length+') '+r.name+' は取得できませんでした → 次へ';
+        await new Promise(r=>setTimeout(r,1000));
+      }
+    }catch(e){r.ps=null;}
+    // テーブルをリアルタイム更新
+    renderTable();
+  }
+
+  pb.style.width='100%';
+  pm.textContent='✅ 速度計測完了！';
+  btn.disabled=false;btn.innerHTML='⚡ 再計測する';
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
