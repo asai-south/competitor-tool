@@ -441,37 +441,76 @@ function renderPsInputs(){
   var area=document.getElementById('ps-inputs');
   if(!area)return;
   var fields=[
-    {key:'lcp',label:'LCP',unit:'秒',good:'2.5以下',placeholder:'例：2.5'},
-    {key:'inp',label:'INP',unit:'ms',good:'200以下',placeholder:'例：180'},
-    {key:'cls',label:'CLS',unit:'',good:'0.1以下',placeholder:'例：0.05'},
-    {key:'fcp',label:'FCP',unit:'秒',good:'1.8以下',placeholder:'例：1.8'},
-    {key:'ttfb',label:'TTFB',unit:'秒',good:'0.8以下',placeholder:'例：0.6'},
+    {key:'lcp', label:'LCP', unit:'秒', good:'2.5以下', placeholder:'2.5'},
+    {key:'inp', label:'INP', unit:'ms', good:'200以下', placeholder:'180'},
+    {key:'cls', label:'CLS', unit:'', good:'0.1以下', placeholder:'0.05'},
+    {key:'fcp', label:'FCP', unit:'秒', good:'1.8以下', placeholder:'1.8'},
+    {key:'ttfb', label:'TTFB', unit:'秒', good:'0.8以下', placeholder:'0.6'},
   ];
+
   var html='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;font-size:13px">';
-  html+='<thead><tr><th style="background:#f4f6f9;padding:10px 14px;text-align:left;font-size:12px;color:#555;border-bottom:2px solid #eee;white-space:nowrap">指標</th>';
-  RES.forEach(r=>{
-    html+='<th style="background:'+(r.isSelf?'#064e3b':'#1a1a2e')+';color:'+(r.isSelf?'#6ee7b7':'#fff')+';padding:10px 14px;text-align:center;font-size:12px;white-space:nowrap">'+esc(r.name)+'<br><a href="https://pagespeed.web.dev/analysis?url='+encodeURIComponent(r.url)+'" target="_blank" style="font-size:10px;color:#9bb0ff;text-decoration:none">⚡ PSI確認</a></th>';
-  });
+  html+='<thead><tr>';
+  html+='<th style="background:#f4f6f9;padding:10px 14px;text-align:left;font-size:12px;color:#555;border-bottom:2px solid #eee;white-space:nowrap">指標</th>';
+  
+  for(var i=0;i<RES.length;i++){
+    var r=RES[i];
+    var thBg=r.isSelf?'#064e3b':'#1a1a2e';
+    var thColor=r.isSelf?'#6ee7b7':'#fff';
+    html+='<th style="background:'+thBg+';color:'+thColor+';padding:10px 14px;text-align:center;font-size:12px;white-space:nowrap">';
+    html+=esc(r.name);
+    html+='<br><a href="https://pagespeed.web.dev/analysis?url='+encodeURIComponent(r.url)+'" target="_blank" style="font-size:10px;color:#9bb0ff;text-decoration:none">⚡ PSI確認</a>';
+    html+='</th>';
+  }
   html+='</tr></thead><tbody>';
-  fields.forEach(f=>{
-    html+='<tr><td style="padding:10px 14px;font-weight:600;color:#555;background:#f8f9ff;white-space:nowrap">'+f.label+'<br><span style="font-size:10px;color:#aaa;font-weight:400">良好：'+f.good+(f.unit?' '+f.unit:'')+'</span></td>';
-    RES.forEach((r,i)=>{
-      var val='';
+
+  for(var fi=0;fi<fields.length;fi++){
+    var f=fields[fi];
+    html+='<tr>';
+    html+='<td style="padding:10px 14px;font-weight:600;color:#555;background:#f8f9ff;white-space:nowrap">';
+    html+=f.label;
+    html+='<br><span style="font-size:10px;color:#aaa;font-weight:400">良好：'+f.good+(f.unit?' '+f.unit:'')+'</span>';
+    html+='</td>';
+
+    for(var i=0;i<RES.length;i++){
+      var r=RES[i];
+      // 自動取得済みの値を取得
+      var autoVal='';
       if(r.ps&&!r.ps.failed){
-        var psMap={lcp:r.ps.lcpVal,cls:r.ps.clsVal,fcp:r.ps.fcpVal,inp:r.ps.inpVal,ttfb:r.ps.ttfbVal};
-        var v=psMap[f.key];
-        if(v!==undefined&&v!==null&&v!==0&&v!=='')val=v;
+        var map={lcp:r.ps.lcpVal,inp:r.ps.inpVal,cls:r.ps.clsVal,fcp:r.ps.fcpVal,ttfb:r.ps.ttfbVal};
+        var v=map[f.key];
+        if(v!==undefined&&v!==null&&v!==0)autoVal=String(v);
       }
       var isFailed=!r.ps||r.ps.failed;
-      var hasVal=val!==''&&val!==0;
-      var borderColor=isFailed?'#f4a261':hasVal?'#06d6a0':'#e0e4ee';
-      var bgColor=hasVal&&!isFailed?'#f0fdf9':'#fff';
-      html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid "+borderColor+";border-radius:6px;font-size:13px;text-align:center;background:"+bgColor+";font-weight:"+(hasVal?"700":"400")+"" oninput="previewScore('+i+')"></td>';
-    });
+      var hasAuto=autoVal!=='';
+      var borderCol=isFailed?'#f4a261':hasAuto?'#06d6a0':'#ddd';
+      var bgCol=hasAuto&&!isFailed?'#f0fdf9':'#fff';
+      var fw=hasAuto?'bold':'normal';
+      var ph=f.placeholder;
+
+      html+='<td style="padding:8px 10px;text-align:center;border-bottom:1px solid #f5f5f5">';
+      html+='<input type="text"';
+      html+=' id="psi-'+f.key+'-'+i+'"';
+      html+=' data-auto="'+autoVal+'"';
+      html+=' placeholder="'+ph+'"';
+      html+=' style="width:85px;padding:6px 8px;border:2px solid '+borderCol+';border-radius:6px;font-size:13px;text-align:center;background:'+bgCol+';font-weight:'+fw+'"';
+      html+='>';
+      html+='</td>';
+    }
     html+='</tr>';
-  });
+  }
   html+='</tbody></table></div>';
   area.innerHTML=html;
+
+  // DOMに追加後にvalueをセット（これが重要！）
+  for(var fi=0;fi<fields.length;fi++){
+    var f=fields[fi];
+    for(var i=0;i<RES.length;i++){
+      var el=document.getElementById('psi-'+f.key+'-'+i);
+      if(el&&el.dataset.auto){
+        el.value=el.dataset.auto;
+      }
+    }
+  }
 }
 
 function previewScore(idx){
