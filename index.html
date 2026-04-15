@@ -226,19 +226,18 @@ async function analyze(site){
       if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
   }catch(e){r.error=true;}
-  // PageSpeed取得（並行して実行）
+  // PageSpeed取得
   try {
     var psRes = await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
     var ps = await psRes.json();
     if(ps.ok) {
       r.ps = {
-        mobilePerf: ps.mobile.performance,
-        desktopPerf: ps.desktop.performance,
-        accessibility: ps.mobile.accessibility,
-        seoScore: ps.mobile.seo,
-        lcp: ps.mobile.lcp,
-        cls: ps.mobile.cls,
-        fcp: ps.mobile.fcp,
+        mobilePerf: ps.performance,
+        accessibility: ps.accessibility,
+        lcp: ps.lcp,
+        cls: ps.cls,
+        fcp: ps.fcp,
+        tbt: ps.tbt,
       };
     }
   } catch(e) { r.ps = null; }
@@ -257,7 +256,7 @@ function calcScore(r){
   if(r.gbpScore>=4.5)m+=50;else if(r.gbpScore>=4.0)m+=35;else if(r.gbpScore>=3.5)m+=20;else if(r.gbpScore>0)m+=10;
   r.meoScore=Math.min(m,100);
   r.sizeScore=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
-  var speedScore=r.ps?r.ps.mobilePerf:0;
+  var speedScore=r.ps&&r.ps.mobilePerf!==null?r.ps.mobilePerf:0;
   r.totalScore=Math.round(r.seoScore*0.3+r.llmoScore*0.15+r.meoScore*0.25+r.sizeScore*0.15+speedScore*0.15);
   r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
 }
@@ -325,12 +324,13 @@ function renderTable(){
   rows+=row('推定ページ数',r=>na(r)?'<span class="na">—</span>':r.pageCnt?r.pageCnt+'件':'<span class="na">取得できず</span>');
   var sp=(RES.find(r=>r.isSelf)||{pageCnt:0}).pageCnt;
   rows+=row('自社比（ページ数）',r=>{if(!sp||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（×1.0）</span>';var rt=(r.pageCnt/sp).toFixed(1);return '<span style="font-weight:700;color:'+(rt>1.5?'#e63946':rt>1?'#f4a261':'#06d6a0')+'">×'+rt+'</span>';});
-  rows+=cat('⚡ 表示速度（PageSpeed Insights）');
-  rows+=row('モバイルスコア',r=>{if(!r.ps)return '<span class="na">取得中...</span>';var s=r.ps.mobilePerf;var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
-  rows+=row('デスクトップスコア',r=>{if(!r.ps)return '<span class="na">取得中...</span>';var s=r.ps.desktopPerf;var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
-  rows+=row('LCP（最大コンテンツ描画）',r=>r.ps?'<span style="font-size:12px">'+r.ps.lcp+'</span>':'<span class="na">—</span>');
-  rows+=row('CLS（レイアウトズレ）',r=>r.ps?'<span style="font-size:12px">'+r.ps.cls+'</span>':'<span class="na">—</span>');
-  rows+=row('アクセシビリティ',r=>{if(!r.ps)return '<span class="na">—</span>';var s=r.ps.accessibility;return '<span class="'+(s>=90?'ok':s>=50?'warn':'ng')+'">'+s+'点</span>';});
+  rows+=cat('⚡ 表示速度・アクセシビリティ（PageSpeed Insights / モバイル）');
+  rows+=row('パフォーマンススコア',r=>{if(!r.ps)return '<span class="na">—</span>';var s=r.ps.mobilePerf;if(s===null)return '<span class="na">—</span>';var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
+  rows+=row('LCP（表示速度）',r=>{if(!r.ps||!r.ps.lcp)return '<span class="na">—</span>';var v=parseFloat(r.ps.lcp);var cl=v<=2.5?'ok':v<=4?'warn':'ng';return '<span class="'+cl+'">'+r.ps.lcp+'</span>';});
+  rows+=row('CLS（レイアウトズレ）',r=>{if(!r.ps||r.ps.cls===null)return '<span class="na">—</span>';var v=parseFloat(r.ps.cls);var cl=v<=0.1?'ok':v<=0.25?'warn':'ng';return '<span class="'+(v<=0.1?'ok':v<=0.25?'warn':'ng')+'">'+r.ps.cls+'</span>';});
+  rows+=row('TBT（応答速度）',r=>r.ps&&r.ps.tbt?'<span style="font-size:12px">'+r.ps.tbt+'</span>':'<span class="na">—</span>');
+  rows+=row('FCP（初回表示）',r=>r.ps&&r.ps.fcp?'<span style="font-size:12px">'+r.ps.fcp+'</span>':'<span class="na">—</span>');
+  rows+=row('アクセシビリティ',r=>{if(!r.ps||r.ps.accessibility===null)return '<span class="na">—</span>';var s=r.ps.accessibility;return '<span class="'+(s>=90?'ok':s>=50?'warn':'ng')+'">'+s+'点</span>';});
   rows+='</tbody>';
   t.innerHTML=hdr+rows;
 }
@@ -429,11 +429,12 @@ function dlCSV(){
     ['推定ページ数',...RES.map(r=>r.pageCnt||'取得できず')],
     ['自社比',...RES.map(r=>{if(!sp||!r.pageCnt)return '—';if(r.isSelf)return '基準(×1.0)';return '×'+(r.pageCnt/sp).toFixed(1);})],
     [''],['=== 表示速度 ==='],
-    ['モバイルスコア',...RES.map(r=>r.ps?r.ps.mobilePerf+'点':'未取得')],
-    ['デスクトップスコア',...RES.map(r=>r.ps?r.ps.desktopPerf+'点':'未取得')],
-    ['LCP',...RES.map(r=>r.ps?r.ps.lcp:'—')],
-    ['CLS',...RES.map(r=>r.ps?r.ps.cls:'—')],
-    ['アクセシビリティ',...RES.map(r=>r.ps?r.ps.accessibility+'点':'—')],
+    ['パフォーマンススコア（モバイル）',...RES.map(r=>r.ps&&r.ps.mobilePerf!==null?r.ps.mobilePerf+'点':'未取得')],
+    ['LCP',...RES.map(r=>r.ps&&r.ps.lcp?r.ps.lcp:'—')],
+    ['CLS',...RES.map(r=>r.ps&&r.ps.cls!==null?r.ps.cls:'—')],
+    ['TBT',...RES.map(r=>r.ps&&r.ps.tbt?r.ps.tbt:'—')],
+    ['FCP',...RES.map(r=>r.ps&&r.ps.fcp?r.ps.fcp:'—')],
+    ['アクセシビリティ',...RES.map(r=>r.ps&&r.ps.accessibility!==null?r.ps.accessibility+'点':'—')],
   ];
   var csv=B+rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   var bl=new Blob([csv],{type:'text/csv;charset=utf-8;'});
