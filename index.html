@@ -138,7 +138,12 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
   <div class="card" id="ps-card">
     <h2>⑥ 表示速度 <span class="badge">PageSpeed Insights</span></h2>
     <p style="font-size:13px;color:#666;margin-bottom:4px">自動取得できた値はプリセット済みです。<span style="color:#f4a261;font-weight:600">オレンジ枠</span>は取得失敗のため手動入力してください。</p>
-    <p style="font-size:12px;color:#aaa;margin-bottom:16px">※ LCP・FCP・TTFBは秒数（例：2.5）、INPはms（例：180）、CLSは数値（例：0.05）</p>
+    <p style="font-size:12px;color:#aaa;margin-bottom:8px">※ LCP・FCP・TTFBは秒数（例：2.5）、INPはms（例：180）、CLSは数値（例：0.05）</p>
+    <div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px">
+      <span><span style="display:inline-block;width:12px;height:12px;background:#f0fdf9;border:2px solid #06d6a0;border-radius:3px;vertical-align:middle;margin-right:4px"></span>自動取得済み</span>
+      <span><span style="display:inline-block;width:12px;height:12px;background:#fff;border:2px solid #f4a261;border-radius:3px;vertical-align:middle;margin-right:4px"></span>手動入力が必要</span>
+      <span><span style="display:inline-block;width:12px;height:12px;background:#fff;border:2px solid #e0e4ee;border-radius:3px;vertical-align:middle;margin-right:4px"></span>未入力</span>
+    </div>
     <div id="ps-inputs"></div>
     <button class="btn blue" style="margin-top:8px" onclick="applySpeedScores()">⚡ レーダーチャートに反映</button>
   </div>
@@ -458,8 +463,10 @@ function renderPsInputs(){
         if(v!==undefined&&v!==null&&v!==0)val=v;
       }
       var isFailed=!r.ps||r.ps.failed;
-      var borderColor=isFailed?'#f4a261':'#e0e4ee';
-      html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid "+borderColor+";border-radius:6px;font-size:13px;text-align:center" oninput="previewScore('+i+')"></td>';
+      var hasVal=val!=='';
+      var borderColor=isFailed?'#f4a261':hasVal?'#06d6a0':'#e0e4ee';
+      var bgColor=hasVal&&!isFailed?'#f0fdf9':'#fff';
+      html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid "+borderColor+";border-radius:6px;font-size:13px;text-align:center;background:"+bgColor+";font-weight:"+(hasVal?"700":"400")+"" oninput="previewScore('+i+')"></td>';
     });
     html+='</tr>';
   });
