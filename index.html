@@ -214,48 +214,62 @@ async function go(){
 }
 
 async function analyze(site){
-  var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,seoScore:0,llmoScore:0,meoScore:0,sizeScore:0,totalScore:0,score:'',error:false,manual:false};
-  try{
-    var html=await fetchSite(site.url);
-    if(!html){r.error=true;calcScore(r);return r;}
-    var p=new DOMParser(),d=p.parseFromString(html,'text/html');
-    r.title=(d.querySelector('title')||{textContent:''}).textContent.trim();
-    r.desc=((d.querySelector('meta[name="description"]')||{getAttribute:()=>''}).getAttribute('content')||'').trim();
-    r.h1=(d.querySelector('h1')||{textContent:''}).textContent.trim();
-    r.h2cnt=d.querySelectorAll('h2').length;
-    r.hasOgp=!!d.querySelector('meta[property="og:title"]');
-    r.hasCanonical=!!d.querySelector('link[rel="canonical"]');
-    r.hasSchema=!!d.querySelector('script[type="application/ld+json"]');
-    r.hasFaq=html.toLowerCase().includes('faq')||html.includes('よくある質問')||html.includes('Q&A');
-    // ページ数取得
-    try{
-      var sm=await fetchSite(site.url+'/sitemap.xml');
-      if(sm){var sd=p.parseFromString(sm,'text/xml');r.pageCnt=sd.querySelectorAll('url loc').length;}
-      if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
-    }catch(e){}
-  }catch(e){r.error=true;}
-  // PageSpeed自動取得
-  try{
-    var psRes=await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
-    var ps=await psRes.json();
-    if(ps.ok&&ps.performance!==null){
-      // "16.5 s" → 16.5、"170 ms" → 0.17秒に変換
-      var toLcp=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
-      var toCls=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
-      var toFcp=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
-      r.ps={
-        lcpVal:toLcp(ps.lcp),
-        inpVal:0,
-        clsVal:toCls(ps.cls),
-        fcpVal:toFcp(ps.fcp),
-        ttfbVal:0,
+  var r={name:site.name,url:site.url,isSelf:site.isSelf,gbpCount:site.gbpCount,gbpScore:site.gbpScore,title:'',desc:'',h1:'',h2cnt:0,hasOgp:false,hasCanonical:false,hasSchema:false,hasFaq:false,pageCnt:0,seoScore:0,llmoScore:0,meoScore:0,sizeScore:0,totalScore:0,score:'',error:false,manual:false,ps:null};
+
+  // SEO取得とPageSpeed取得を並列実行
+  var [seoResult, psResult] = await Promise.allSettled([
+    // SEO取得
+    (async()=>{
+      var html=await fetchSite(site.url);
+      if(!html)return {error:true};
+      var p=new DOMParser(),d=p.parseFromString(html,'text/html');
+      var pageCnt=0;
+      try{
+        var sm=await fetchSite(site.url+'/sitemap.xml');
+        if(sm){var sd=p.parseFromString(sm,'text/xml');pageCnt=sd.querySelectorAll('url loc').length;}
+        if(!pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
+      }catch(e){}
+      return {
+        title:(d.querySelector('title')||{textContent:''}).textContent.trim(),
+        desc:((d.querySelector('meta[name="description"]')||{getAttribute:()=>''}).getAttribute('content')||'').trim(),
+        h1:(d.querySelector('h1')||{textContent:''}).textContent.trim(),
+        h2cnt:d.querySelectorAll('h2').length,
+        hasOgp:!!d.querySelector('meta[property="og:title"]'),
+        hasCanonical:!!d.querySelector('link[rel="canonical"]'),
+        hasSchema:!!d.querySelector('script[type="application/ld+json"]'),
+        hasFaq:html.toLowerCase().includes('faq')||html.includes('よくある質問')||html.includes('Q&A'),
+        pageCnt:pageCnt,
+      };
+    })(),
+    // PageSpeed取得
+    (async()=>{
+      var psRes=await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
+      var ps=await psRes.json();
+      if(!ps.ok||ps.performance===null)return null;
+      var pf=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
+      return {
+        lcpVal:pf(ps.lcp),inpVal:0,clsVal:pf(ps.cls),fcpVal:pf(ps.fcp),ttfbVal:0,
         lcp:ps.lcp,cls:ps.cls,fcp:ps.fcp,tbt:ps.tbt,
         failed:false,auto:true,
       };
-    } else {
-      r.ps={failed:true};
-    }
-  }catch(e){r.ps={failed:true};}
+    })(),
+  ]);
+
+  // SEO結果を反映
+  if(seoResult.status==='fulfilled'&&seoResult.value&&!seoResult.value.error){
+    var s=seoResult.value;
+    r.title=s.title;r.desc=s.desc;r.h1=s.h1;r.h2cnt=s.h2cnt;
+    r.hasOgp=s.hasOgp;r.hasCanonical=s.hasCanonical;r.hasSchema=s.hasSchema;
+    r.hasFaq=s.hasFaq;r.pageCnt=s.pageCnt;
+  } else {r.error=true;}
+
+  // PageSpeed結果を反映
+  if(psResult.status==='fulfilled'&&psResult.value){
+    r.ps=psResult.value;
+  } else {
+    r.ps={failed:true};
+  }
+
   calcScore(r);return r;
 }
 
