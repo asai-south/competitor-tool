@@ -460,10 +460,10 @@ function renderPsInputs(){
       if(r.ps&&!r.ps.failed){
         var psMap={lcp:r.ps.lcpVal,cls:r.ps.clsVal,fcp:r.ps.fcpVal,inp:r.ps.inpVal,ttfb:r.ps.ttfbVal};
         var v=psMap[f.key];
-        if(v!==undefined&&v!==null&&v!==0)val=v;
+        if(v!==undefined&&v!==null&&v!==0&&v!=='')val=v;
       }
       var isFailed=!r.ps||r.ps.failed;
-      var hasVal=val!=='';
+      var hasVal=val!==''&&val!==0;
       var borderColor=isFailed?'#f4a261':hasVal?'#06d6a0':'#e0e4ee';
       var bgColor=hasVal&&!isFailed?'#f0fdf9':'#fff';
       html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid "+borderColor+";border-radius:6px;font-size:13px;text-align:center;background:"+bgColor+";font-weight:"+(hasVal?"700":"400")+"" oninput="previewScore('+i+')"></td>';
