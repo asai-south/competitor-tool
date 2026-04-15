@@ -5,32 +5,26 @@ export default async function handler(req, res) {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url required' });
 
-  try {
-    const apiUrl = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=accessibility&category=seo`;
-    const apiUrlDesktop = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=desktop&category=performance`;
+  const apiKey = process.env.PAGESPEED_API_KEY || '';
+  const keyParam = apiKey ? `&key=${apiKey}` : '';
 
+  try {
+    const base = 'https://www.googleapis.com/pagespeedonline/v5/runPagespeed';
     const [mobileRes, desktopRes] = await Promise.all([
-      fetch(apiUrl, { signal: AbortSignal.timeout(25000) }),
-      fetch(apiUrlDesktop, { signal: AbortSignal.timeout(25000) }),
+      fetch(`${base}?url=${encodeURIComponent(url)}&strategy=mobile&category=performance&category=accessibility&category=seo${keyParam}`, {
+        signal: AbortSignal.timeout(25000),
+      }),
+      fetch(`${base}?url=${encodeURIComponent(url)}&strategy=desktop&category=performance${keyParam}`, {
+        signal: AbortSignal.timeout(25000),
+      }),
     ]);
 
     const [mobile, desktop] = await Promise.all([mobileRes.json(), desktopRes.json()]);
 
-    // デバッグ用：実際のレスポンス構造を確認
-    const mCats = mobile?.lighthouseResult?.categories;
-    const mAudits = mobile?.lighthouseResult?.audits;
-
-    const extract = (data, strategy) => {
+    const extract = (data) => {
       const cats = data?.lighthouseResult?.categories || {};
       const audits = data?.lighthouseResult?.audits || {};
-
-      const getScore = (cat) => {
-        if (!cat) return null;
-        const s = cat.score;
-        if (s === null || s === undefined) return null;
-        return Math.round(s * 100);
-      };
-
+      const getScore = (cat) => cat?.score != null ? Math.round(cat.score * 100) : null;
       return {
         performance: getScore(cats.performance),
         accessibility: getScore(cats.accessibility),
@@ -45,14 +39,8 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       ok: true,
-      mobile: extract(mobile, 'mobile'),
-      desktop: extract(desktop, 'desktop'),
-      // デバッグ情報
-      _debug: {
-        mobileCategories: Object.keys(mCats || {}),
-        mobileAudits: Object.keys(mAudits || {}).slice(0, 5),
-        mobileError: mobile?.error?.message || null,
-      }
+      mobile: extract(mobile),
+      desktop: extract(desktop),
     });
   } catch (e) {
     res.status(200).json({ ok: false, error: e.message });
