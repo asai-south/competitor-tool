@@ -2,6 +2,9 @@
   "functions": {
     "api/fetch.js": {
       "maxDuration": 15
+    },
+    "api/pagespeed.js": {
+      "maxDuration": 60
     }
   }
 }
