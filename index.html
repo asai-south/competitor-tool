@@ -136,9 +136,9 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
     <canvas id="RA" style="max-height:380px;max-width:500px;margin:24px auto 0;display:block"></canvas>
   </div>
   <div class="card" id="ps-card">
-    <h2>⑥ 表示速度を入力 <span class="badge">オプション</span></h2>
-    <p style="font-size:13px;color:#666;margin-bottom:4px">PageSpeed Insightsで各サイトを確認して数値を入力してください。入力するとレーダーチャートに反映されます。</p>
-    <p style="font-size:12px;color:#aaa;margin-bottom:16px">※ LCP・FCP・TTFBは秒数で入力（例：2.5）、INP・CLSは表示の数値そのまま</p>
+    <h2>⑥ 表示速度 <span class="badge">PageSpeed Insights</span></h2>
+    <p style="font-size:13px;color:#666;margin-bottom:4px">自動取得できた値はプリセット済みです。<span style="color:#f4a261;font-weight:600">オレンジ枠</span>は取得失敗のため手動入力してください。</p>
+    <p style="font-size:12px;color:#aaa;margin-bottom:16px">※ LCP・FCP・TTFBは秒数（例：2.5）、INPはms（例：180）、CLSは数値（例：0.05）</p>
     <div id="ps-inputs"></div>
     <button class="btn blue" style="margin-top:8px" onclick="applySpeedScores()">⚡ レーダーチャートに反映</button>
   </div>
@@ -234,7 +234,28 @@ async function analyze(site){
       if(!r.pageCnt){var ws=await fetchSite(site.url+'/wp-sitemap.xml');if(ws){var wd=p.parseFromString(ws,'text/xml');r.pageCnt=wd.querySelectorAll('url loc,sitemap loc').length;}}
     }catch(e){}
   }catch(e){r.error=true;}
-  // PageSpeedは別途ボタンで取得
+  // PageSpeed自動取得
+  try{
+    var psRes=await fetch('/api/pagespeed?url='+encodeURIComponent(site.url));
+    var ps=await psRes.json();
+    if(ps.ok&&ps.performance!==null){
+      // "16.5 s" → 16.5、"170 ms" → 0.17秒に変換
+      var toLcp=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
+      var toCls=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
+      var toFcp=function(s){if(!s)return 0;var n=parseFloat(s);return isNaN(n)?0:n;};
+      r.ps={
+        lcpVal:toLcp(ps.lcp),
+        inpVal:0,
+        clsVal:toCls(ps.cls),
+        fcpVal:toFcp(ps.fcp),
+        ttfbVal:0,
+        lcp:ps.lcp,cls:ps.cls,fcp:ps.fcp,tbt:ps.tbt,
+        failed:false,auto:true,
+      };
+    } else {
+      r.ps={failed:true};
+    }
+  }catch(e){r.ps={failed:true};}
   calcScore(r);return r;
 }
 
@@ -416,8 +437,15 @@ function renderPsInputs(){
   fields.forEach(f=>{
     html+='<tr><td style="padding:10px 14px;font-weight:600;color:#555;background:#f8f9ff;white-space:nowrap">'+f.label+'<br><span style="font-size:10px;color:#aaa;font-weight:400">良好：'+f.good+(f.unit?' '+f.unit:'')+'</span></td>';
     RES.forEach((r,i)=>{
-      var val=r.ps&&!r.ps.failed?r.ps[f.key]||'':'';
-      html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid #e0e4ee;border-radius:6px;font-size:13px;text-align:center" oninput="previewScore('+i+')"></td>';
+      var val='';
+      if(r.ps&&!r.ps.failed){
+        var psMap={lcp:r.ps.lcpVal,cls:r.ps.clsVal,fcp:r.ps.fcpVal,inp:r.ps.inpVal,ttfb:r.ps.ttfbVal};
+        var v=psMap[f.key];
+        if(v!==undefined&&v!==null&&v!==0)val=v;
+      }
+      var isFailed=!r.ps||r.ps.failed;
+      var borderColor=isFailed?'#f4a261':'#e0e4ee';
+      html+='<td style="padding:8px 14px;text-align:center;border-bottom:1px solid #f5f5f5"><input type="text" id="psi-'+f.key+'-'+i+'" value="'+val+'" placeholder="'+f.placeholder+'" style="width:90px;padding:6px 10px;border:2px solid "+borderColor+";border-radius:6px;font-size:13px;text-align:center" oninput="previewScore('+i+')"></td>';
     });
     html+='</tr>';
   });
