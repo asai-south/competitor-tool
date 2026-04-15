@@ -252,7 +252,7 @@ function calcScore(r){
   if(r.gbpScore>=4.5)m+=50;else if(r.gbpScore>=4.0)m+=35;else if(r.gbpScore>=3.5)m+=20;else if(r.gbpScore>0)m+=10;
   r.meoScore=Math.min(m,100);
   r.sizeScore=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
-  var speedScore=r.ps&&r.ps.mobilePerf!==null?r.ps.mobilePerf:0;
+  var speedScore=r.ps&&!r.ps.failed&&r.ps.mobilePerf!==null?r.ps.mobilePerf:0;
   r.totalScore=Math.round(r.seoScore*0.3+r.llmoScore*0.15+r.meoScore*0.25+r.sizeScore*0.15+speedScore*0.15);
   r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
 }
@@ -321,12 +321,19 @@ function renderTable(){
   var sp=(RES.find(r=>r.isSelf)||{pageCnt:0}).pageCnt;
   rows+=row('自社比（ページ数）',r=>{if(!sp||!r.pageCnt)return '<span class="na">—</span>';if(r.isSelf)return '<span style="font-weight:700">基準（×1.0）</span>';var rt=(r.pageCnt/sp).toFixed(1);return '<span style="font-weight:700;color:'+(rt>1.5?'#e63946':rt>1?'#f4a261':'#06d6a0')+'">×'+rt+'</span>';});
   rows+=cat('⚡ 表示速度・アクセシビリティ（PageSpeed Insights / モバイル）');
-  rows+=row('パフォーマンススコア',r=>{if(!r.ps)return '<span class="na">—</span>';var s=r.ps.mobilePerf;if(s===null)return '<span class="na">—</span>';var cl=s>=90?'ok':s>=50?'warn':'ng';return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';});
-  rows+=row('LCP（表示速度）',r=>{if(!r.ps||!r.ps.lcp)return '<span class="na">—</span>';var v=parseFloat(r.ps.lcp);var cl=v<=2.5?'ok':v<=4?'warn':'ng';return '<span class="'+cl+'">'+r.ps.lcp+'</span>';});
-  rows+=row('CLS（レイアウトズレ）',r=>{if(!r.ps||r.ps.cls===null)return '<span class="na">—</span>';var v=parseFloat(r.ps.cls);var cl=v<=0.1?'ok':v<=0.25?'warn':'ng';return '<span class="'+(v<=0.1?'ok':v<=0.25?'warn':'ng')+'">'+r.ps.cls+'</span>';});
-  rows+=row('TBT（応答速度）',r=>r.ps&&r.ps.tbt?'<span style="font-size:12px">'+r.ps.tbt+'</span>':'<span class="na">—</span>');
-  rows+=row('FCP（初回表示）',r=>r.ps&&r.ps.fcp?'<span style="font-size:12px">'+r.ps.fcp+'</span>':'<span class="na">—</span>');
-  rows+=row('アクセシビリティ',r=>{if(!r.ps||r.ps.accessibility===null)return '<span class="na">—</span>';var s=r.ps.accessibility;return '<span class="'+(s>=90?'ok':s>=50?'warn':'ng')+'">'+s+'点</span>';});
+  rows+=row('パフォーマンススコア',r=>{
+    if(!r.ps)return '<span class="na">—</span>';
+    if(r.ps.failed)return '<span class="na">取得失敗</span><br><a href="https://pagespeed.web.dev/analysis?url='+encodeURIComponent(r.url)+'" target="_blank" style="font-size:11px;color:#3a86ff;text-decoration:none;border:1px solid #3a86ff;border-radius:4px;padding:2px 6px;display:inline-block;margin-top:4px">⚡ 直接確認</a>';
+    var s=r.ps.mobilePerf;
+    if(s===null)return '<span class="na">—</span>';
+    var cl=s>=90?'ok':s>=50?'warn':'ng';
+    return '<span class="'+cl+'">'+s+'点</span><div class="speed-bar"><div class="speed-fill" style="width:'+s+'%;background:'+(s>=90?'#06d6a0':s>=50?'#f4a261':'#e63946')+'"></div></div>';
+  });
+  rows+=row('LCP（表示速度）',r=>{if(!r.ps||r.ps.failed||!r.ps.lcp)return '<span class="na">—</span>';var v=parseFloat(r.ps.lcp);var cl=v<=2.5?'ok':v<=4?'warn':'ng';return '<span class="'+cl+'">'+r.ps.lcp+'</span>';});
+  rows+=row('CLS（レイアウトズレ）',r=>{if(!r.ps||r.ps.failed||r.ps.cls===null)return '<span class="na">—</span>';var v=parseFloat(r.ps.cls);return '<span class="'+(v<=0.1?'ok':v<=0.25?'warn':'ng')+'">'+r.ps.cls+'</span>';});
+  rows+=row('TBT（応答速度）',r=>r.ps&&!r.ps.failed&&r.ps.tbt?'<span style="font-size:12px">'+r.ps.tbt+'</span>':'<span class="na">—</span>');
+  rows+=row('FCP（初回表示）',r=>r.ps&&!r.ps.failed&&r.ps.fcp?'<span style="font-size:12px">'+r.ps.fcp+'</span>':'<span class="na">—</span>');
+  rows+=row('アクセシビリティ',r=>{if(!r.ps||r.ps.failed||r.ps.accessibility===null)return '<span class="na">—</span>';var s=r.ps.accessibility;return '<span class="'+(s>=90?'ok':s>=50?'warn':'ng')+'">'+s+'点</span>';});
   rows+='</tbody>';
   t.innerHTML=hdr+rows;
 }
@@ -414,11 +421,11 @@ async function startPageSpeed(){
           tbt:ps.tbt,
         };
       } else {
-        r.ps=null;
+        r.ps={failed:true};
         pm.textContent='('+(i+1)+'/'+RES.length+') '+r.name+' は取得できませんでした → 次へ';
-        await new Promise(r=>setTimeout(r,1000));
+        await new Promise(r=>setTimeout(r,500));
       }
-    }catch(e){r.ps=null;}
+    }catch(e){r.ps={failed:true};}
     // テーブルをリアルタイム更新
     renderTable();
   }
