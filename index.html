@@ -148,8 +148,19 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
     <button class="btn blue" style="margin-top:8px" onclick="applySpeedScores()">⚡ レーダーチャートに反映</button>
   </div>
 
+  <div class="card" id="est-card">
+    <h2>⑦ 推定リニューアル費用比較 <span class="badge">オプション</span></h2>
+    <p style="font-size:13px;color:#666;margin-bottom:14px">各社のサイトマップを取得して制作費を推定します。1〜2分かかります。</p>
+    <div class="ac">
+      <button class="btn blue" id="btn-est" onclick="startEstimate()">💰 制作費を推定する</button>
+    </div>
+    <div class="bw" id="est-pw"><div class="bv" id="est-pb" style="width:0%"></div></div>
+    <div class="mg" id="est-pm"></div>
+    <div id="est-result" class="hidden" style="margin-top:16px;overflow-x:auto"></div>
+  </div>
+
   <div class="card">
-    <h2>⑦ 詳細比較表 <span class="badge">STEP 6</span></h2>
+    <h2>⑧ 詳細比較表 <span class="badge">STEP 6</span></h2>
     <div class="ac" style="margin-bottom:14px">
       <button class="btn green" onclick="dlCSV()">📥 比較レポートCSV出力</button>
     </div>
@@ -161,6 +172,68 @@ header p{font-size:12px;color:#9bb0ff;margin-top:4px}
 
 <script>
 var RES=[],CC=0,RC=null;
+
+// 見積もりロジック（SEO診断ツールと同じ）
+var EST_TYPES={
+  'TOP':      {label:'トップページ',   design:24, coding:40},
+  'サービス': {label:'固定ページ',     design:2,  coding:2},
+  '会社情報': {label:'固定ページ',     design:2,  coding:2},
+  '固定':     {label:'固定ページ',     design:2,  coding:2},
+  'お問合わせ':{label:'フォームページ', design:2,  coding:6},
+  'ブログ':   {label:'カスタム投稿',   design:4,  coding:8},
+  '記事':     {label:'通常投稿',       design:2,  coding:8},
+  '施工事例': {label:'カスタム投稿',   design:4,  coding:8},
+  'その他':   {label:'固定ページ',     design:2,  coding:2},
+};
+
+function getPageType(u){
+  if(u.match(/\/(blog|news|article|column|post)\/[^\/]+\/[^\/]+/i))return '記事';
+  if(u.match(/\/(blog|news|article|column|post)/i))return 'ブログ';
+  if(u.match(/\/(case|works|jirei)/i))return '施工事例';
+  if(u.match(/\/(service|menu|price)/i))return 'サービス';
+  if(u.match(/\/(about|company)/i))return '会社情報';
+  if(u.match(/\/contact/i))return 'お問合わせ';
+  if(u.replace(/https?:\/\/[^\/]+\/?$/,'').length===0)return 'TOP';
+  return 'その他';
+}
+
+function calcEstimate(urls, rate){
+  rate=rate||5000;
+  var counts={}, seenSlugs={};
+  urls.forEach(function(u){
+    // サイトマップ・プライバシーポリシー除外
+    if(u.match(/sitemap|privacy|policy/i))return;
+    var t=getPageType(u);
+    if(t==='ブログ'||t==='施工事例'||t==='記事'){
+      var m=u.replace(/https?:\/\/[^\/]+/,'').match(/^\/([^\/]+)/);
+      var slug=m?m[1]:'_unknown';
+      var key=t+'::'+slug;
+      if(seenSlugs[key])return;
+      seenSlugs[key]=true;
+    }
+    counts[t]=(counts[t]||0)+1;
+  });
+
+  var totalDesign=0, totalCoding=0;
+  var rows=[];
+  Object.keys(counts).forEach(function(t){
+    var def=EST_TYPES[t]||{label:'固定ページ',design:2,coding:2};
+    var cnt=counts[t];
+    var d=def.design*cnt, c=def.coding*cnt;
+    totalDesign+=d; totalCoding+=c;
+    rows.push({label:def.label+'（'+t+'）',cnt:cnt,design:d,coding:c,subtotal:d+c});
+  });
+
+  var dirH=Math.ceil((totalDesign+totalCoding)*0.2);
+  var fixedH=8+16; // WP構築+デバッグ
+  var grandTotal=totalDesign+totalCoding+dirH+fixedH;
+  return {
+    rows:rows, dirH:dirH, fixedH:fixedH,
+    totalDesign:totalDesign, totalCoding:totalCoding,
+    grandTotal:grandTotal, totalYen:grandTotal*rate,
+    pageCount:urls.length, rate:rate,
+  };
+}
 var COLS=['#3a86ff','#06d6a0','#f4a261','#e63946','#8b5cf6','#ec4899'];
 
 window.onload=function(){addComp();addComp();};
@@ -544,6 +617,114 @@ function applySpeedScores(doRender){
     renderCharts();
     renderTable();
   }
+}
+
+async function startEstimate(){
+  var btn=document.getElementById('btn-est');
+  btn.disabled=true;btn.innerHTML='<span class="sp"></span>サイトマップ取得中...';
+  var pw=document.getElementById('est-pw'),pb=document.getElementById('est-pb'),pm=document.getElementById('est-pm');
+  pw.style.display='block';
+  var rate=5000;
+
+  for(var i=0;i<RES.length;i++){
+    var r=RES[i];
+    pm.textContent='('+(i+1)+'/'+RES.length+') '+r.name+' のURLを取得中...';
+    pb.style.width=Math.round(i/RES.length*100)+'%';
+    try{
+      var urls=[];
+      var base=r.url.replace(/\/$/,'');
+      // サイトマップを取得
+      var smUrls=[base+'/sitemap.xml',base+'/wp-sitemap.xml',base+'/sitemap_index.xml'];
+      for(var j=0;j<smUrls.length;j++){
+        var sm=await fetchSite(smUrls[j]);
+        if(sm){
+          var p=new DOMParser();
+          var d=p.parseFromString(sm,'text/xml');
+          // インデックスサイトマップの場合は個別も取得
+          var subSMs=d.querySelectorAll('sitemap loc');
+          for(var k=0;k<subSMs.length;k++){
+            var subSm=await fetchSite(subSMs[k].textContent.trim());
+            if(subSm){
+              var subD=p.parseFromString(subSm,'text/xml');
+              subD.querySelectorAll('url loc').forEach(function(l){urls.push(l.textContent.trim());});
+            }
+          }
+          d.querySelectorAll('url loc').forEach(function(l){urls.push(l.textContent.trim());});
+          if(urls.length>0)break;
+        }
+      }
+      r.estUrls=urls;
+      r.est=urls.length>0?calcEstimate(urls,rate):null;
+    }catch(e){r.est=null;}
+  }
+
+  pb.style.width='100%';
+  pm.textContent='✅ 推定完了！';
+  btn.disabled=false;btn.innerHTML='💰 再推定する';
+  renderEstimate(rate);
+  document.getElementById('est-result').classList.remove('hidden');
+}
+
+function renderEstimate(rate){
+  var area=document.getElementById('est-result');
+  rate=rate||5000;
+
+  // サマリー横並び
+  var html='<div style="display:grid;grid-template-columns:repeat('+RES.length+',1fr);gap:12px;margin-bottom:16px">';
+  RES.forEach(function(r,i){
+    var bg=COLS[i%COLS.length];
+    if(!r.est){
+      html+='<div style="background:#f8f9ff;border-radius:12px;padding:16px;text-align:center"><div style="font-size:13px;font-weight:700;margin-bottom:8px">'+esc(r.name)+'</div><div style="color:#aaa;font-size:12px">取得できませんでした</div></div>';
+      return;
+    }
+    html+='<div style="background:'+bg+'11;border:2px solid '+bg+';border-radius:12px;padding:16px;text-align:center">';
+    html+='<div style="font-size:13px;font-weight:700;margin-bottom:6px">'+esc(r.name)+'</div>';
+    html+='<div style="font-size:22px;font-weight:700;color:'+bg+'">¥'+r.est.totalYen.toLocaleString()+'</div>';
+    html+='<div style="font-size:11px;color:#888;margin-top:4px">推定制作費（税抜）</div>';
+    html+='<div style="font-size:12px;color:#555;margin-top:8px">総工数：'+r.est.grandTotal+'h</div>';
+    html+='<div style="font-size:11px;color:#aaa">取得URL：'+r.est.pageCount+'件</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+
+  // 明細テーブル
+  html+='<table style="border-collapse:collapse;width:100%;font-size:12px">';
+  html+='<thead><tr><th style="background:#1a1a2e;color:#fff;padding:10px 14px;text-align:left">項目</th>';
+  RES.forEach(function(r,i){
+    html+='<th style="background:'+(r.isSelf?'#064e3b':'#1a1a2e')+';color:'+(r.isSelf?'#6ee7b7':'#fff')+';padding:10px 14px;text-align:center">'+esc(r.name)+'</th>';
+  });
+  html+='</tr></thead><tbody>';
+
+  // 全ページ種別を収集
+  var allTypes=new Set();
+  RES.forEach(function(r){if(r.est)r.est.rows.forEach(function(row){allTypes.add(row.label);});});
+
+  allTypes.forEach(function(label){
+    html+='<tr><td style="padding:9px 14px;background:#f8f9ff;font-weight:600;color:#555;border-bottom:1px solid #eee">'+label+'</td>';
+    RES.forEach(function(r){
+      if(!r.est){html+='<td style="padding:9px 14px;text-align:center;color:#ccc;border-bottom:1px solid #eee">—</td>';return;}
+      var row=r.est.rows.find(function(rw){return rw.label===label;});
+      html+='<td style="padding:9px 14px;text-align:center;border-bottom:1px solid #eee">'+(row?row.cnt+'件（'+row.subtotal+'h）':'—')+'</td>';
+    });
+    html+='</tr>';
+  });
+
+  // ディレクション費・固定費・合計
+  html+='<tr style="background:#fffbea"><td style="padding:9px 14px;font-weight:600;color:#555;border-bottom:1px solid #eee">ディレクション費（20%）</td>';
+  RES.forEach(function(r){html+='<td style="padding:9px 14px;text-align:center;border-bottom:1px solid #eee">'+(r.est?r.est.dirH+'h':'—')+'</td>';});
+  html+='</tr>';
+  html+='<tr><td style="padding:9px 14px;font-weight:600;color:#555;border-bottom:1px solid #eee">WP構築費＋デバッグ費</td>';
+  RES.forEach(function(r){html+='<td style="padding:9px 14px;text-align:center;border-bottom:1px solid #eee">'+(r.est?'24h（固定）':'—')+'</td>';});
+  html+='</tr>';
+  html+='<tr style="background:#f0f5ff"><td style="padding:10px 14px;font-weight:700;font-size:13px;border-top:2px solid #3a86ff">合計（税抜）</td>';
+  RES.forEach(function(r){
+    html+='<td style="padding:10px 14px;text-align:center;font-weight:700;font-size:14px;color:#3a86ff;border-top:2px solid #3a86ff">'+(r.est?'¥'+r.est.totalYen.toLocaleString()+'<br><span style="font-size:11px;color:#888">'+r.est.grandTotal+'h</span>':'—')+'</td>';
+  });
+  html+='</tr>';
+  html+='<tr><td style="padding:8px 14px;font-size:11px;color:#aaa" colspan="'+(RES.length+1)+'">※ サイトマップから自動取得したURLをもとに推定。カスタム投稿・通常投稿は1スラッグ1件でカウント（記事移行費は含まない）</td></tr>';
+  html+='</tbody></table>';
+
+  area.innerHTML=html;
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
