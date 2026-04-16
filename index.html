@@ -292,13 +292,13 @@ function calcScore(r){
   r.sizeScore=r.pageCnt>=100?100:r.pageCnt>=50?75:r.pageCnt>=20?50:r.pageCnt>=5?25:0;
   // PageSpeed指標からスピードスコア計算
   var speedScore=0;
-  if(r.ps&&!r.ps.failed&&(r.ps.lcpVal||r.ps.clsVal!==undefined||r.ps.fcpVal)){
-    var lcpS=r.ps.lcpVal<=2.5?100:r.ps.lcpVal<=4?60:r.ps.lcpVal>0?20:0;
-    var clsS=r.ps.clsVal<=0.1?100:r.ps.clsVal<=0.25?60:r.ps.clsVal>0?20:0;
-    var fcpS=r.ps.fcpVal<=1.8?100:r.ps.fcpVal<=3?60:r.ps.fcpVal>0?20:0;
-    var inpS=r.ps.inpVal<=200?100:r.ps.inpVal<=500?60:r.ps.inpVal>0?20:0;
-    var cnt=(r.ps.lcpVal?1:0)+(r.ps.clsVal!==undefined&&r.ps.clsVal!==0?1:0)+(r.ps.fcpVal?1:0)+(r.ps.inpVal?1:0);
-    speedScore=cnt>0?Math.round((lcpS+clsS+fcpS+inpS)/(cnt||1)):0;
+  if(r.ps&&!r.ps.failed){
+    var scores=[];
+    if(r.ps.lcpVal>0)scores.push(r.ps.lcpVal<=2.5?100:r.ps.lcpVal<=4?60:20);
+    if(r.ps.clsVal>0)scores.push(r.ps.clsVal<=0.1?100:r.ps.clsVal<=0.25?60:20);
+    if(r.ps.fcpVal>0)scores.push(r.ps.fcpVal<=1.8?100:r.ps.fcpVal<=3?60:20);
+    if(r.ps.inpVal>0)scores.push(r.ps.inpVal<=200?100:r.ps.inpVal<=500?60:20);
+    if(scores.length>0)speedScore=Math.round(scores.reduce(function(a,b){return a+b;},0)/scores.length);
   }
   r.totalScore=Math.round(r.seoScore*0.3+r.llmoScore*0.15+r.meoScore*0.25+r.sizeScore*0.15+speedScore*0.15);
   r.score=r.totalScore>=75?'A':r.totalScore>=55?'B':r.totalScore>=35?'C':'D';
@@ -520,26 +520,29 @@ function previewScore(idx){
 
 function applySpeedScores(doRender){
   if(doRender===undefined)doRender=true;
-  RES.forEach((r,i)=>{
+  for(var i=0;i<RES.length;i++){
+    var r=RES[i];
     var lcp=parseFloat(document.getElementById('psi-lcp-'+i)?.value)||0;
     var inp=parseFloat(document.getElementById('psi-inp-'+i)?.value)||0;
     var cls=parseFloat(document.getElementById('psi-cls-'+i)?.value)||0;
     var fcp=parseFloat(document.getElementById('psi-fcp-'+i)?.value)||0;
     var ttfb=parseFloat(document.getElementById('psi-ttfb-'+i)?.value)||0;
-    if(!lcp&&!cls&&!fcp&&!ttfb&&!inp){r.ps=null;calcScore(r);return;}
+    if(!lcp&&!cls&&!fcp&&!ttfb&&!inp){
+      if(!r.ps||r.ps.failed)r.ps=null;
+      calcScore(r);
+      continue;
+    }
     r.ps={
-      lcp:lcp?lcp+'s':null,
-      inp:inp?inp+'ms':null,
-      cls:cls?cls+'':null,
-      fcp:fcp?fcp+'s':null,
-      ttfb:ttfb?ttfb+'s':null,
+      lcpVal:lcp, inpVal:inp, clsVal:cls, fcpVal:fcp, ttfbVal:ttfb,
       failed:false,
-      // スコア計算用
-      lcpVal:lcp,inpVal:inp,clsVal:cls,fcpVal:fcp,ttfbVal:ttfb,
     };
     calcScore(r);
-  });
-  if(doRender){renderSum();renderCharts();renderTable();}
+  }
+  if(doRender){
+    renderSum();
+    renderCharts();
+    renderTable();
+  }
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
