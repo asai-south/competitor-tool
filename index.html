@@ -201,9 +201,18 @@ function calcEstimate(urls, rate){
   rate=rate||5000;
   var counts={}, seenSlugs={};
   urls.forEach(function(u){
-    // サイトマップ・プライバシーポリシー除外
-    if(u.match(/sitemap|privacy|policy/i))return;
+    // 除外するURL
+    if(u.match(/sitemap|privacy|policy|feed|wp-json|wp-admin|\.xml$|\.pdf$/i))return;
+    // ページネーション除外（/page/2/ など）
+    if(u.match(/\/page\/\d+/i))return;
+    // クエリパラメータ付きURL除外
+    if(u.includes('?'))return;
+    // 添付ファイルURL除外
+    if(u.match(/\.(jpg|jpeg|png|gif|pdf|zip|mp4|webp)$/i))return;
+
     var t=getPageType(u);
+
+    // カスタム投稿・ブログ・記事はスラッグ単位で1件
     if(t==='ブログ'||t==='施工事例'||t==='記事'){
       var m=u.replace(/https?:\/\/[^\/]+/,'').match(/^\/([^\/]+)/);
       var slug=m?m[1]:'_unknown';
@@ -211,6 +220,22 @@ function calcEstimate(urls, rate){
       if(seenSlugs[key])return;
       seenSlugs[key]=true;
     }
+
+    // その他も第1階層のパスで重複除外（例：/works/aaa と /works/bbb は同じworksスラッグ）
+    if(t==='その他'){
+      var path=u.replace(/https?:\/\/[^\/]+/,'');
+      var depth=path.split('/').filter(function(s){return s;}).length;
+      // 3階層以上のURLは除外（記事の個別ページなどを弾く）
+      if(depth>=3)return;
+      // 同じ第1階層パスは1件のみ
+      var firstPath=path.split('/').filter(function(s){return s;})[0]||'';
+      if(firstPath){
+        var key2='その他::'+firstPath;
+        if(seenSlugs[key2])return;
+        seenSlugs[key2]=true;
+      }
+    }
+
     counts[t]=(counts[t]||0)+1;
   });
 
