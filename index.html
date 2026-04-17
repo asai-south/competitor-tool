@@ -656,31 +656,77 @@ async function startEstimate(){
     pm.textContent='('+(i+1)+'/'+RES.length+') '+r.name+' のURLを取得中...';
     pb.style.width=Math.round(i/RES.length*100)+'%';
     try{
-      var urls=[];
       var base=r.url.replace(/\/$/,'');
-      // サイトマップを取得
-      var smUrls=[base+'/sitemap.xml',base+'/wp-sitemap.xml',base+'/sitemap_index.xml'];
-      for(var j=0;j<smUrls.length;j++){
-        var sm=await fetchSite(smUrls[j]);
-        if(sm){
-          var p=new DOMParser();
-          var d=p.parseFromString(sm,'text/xml');
-          // インデックスサイトマップの場合は個別も取得
-          var subSMs=d.querySelectorAll('sitemap loc');
-          for(var k=0;k<subSMs.length;k++){
-            var subSm=await fetchSite(subSMs[k].textContent.trim());
-            if(subSm){
-              var subD=p.parseFromString(subSm,'text/xml');
-              subD.querySelectorAll('url loc').forEach(function(l){urls.push(l.textContent.trim());});
-            }
+      var p=new DOMParser();
+      // サイトマップインデックスを取得
+      var smIndexUrls=[base+'/sitemap.xml',base+'/wp-sitemap.xml',base+'/sitemap_index.xml'];
+      var smEntries=[]; // {url, type} の配列
+      var foundIndex=false;
+
+      for(var j=0;j<smIndexUrls.length;j++){
+        var sm=await fetchSite(smIndexUrls[j]);
+        if(!sm)continue;
+        var d=p.parseFromString(sm,'text/xml');
+        var subSMs=d.querySelectorAll('sitemap loc');
+        if(subSMs.length>0){
+          // サイトマップインデックス形式 - ファイル名からページ種別を判定
+          foundIndex=true;
+          subSMs.forEach(function(loc){
+            var smUrl=loc.textContent.trim();
+            var fname=smUrl.split('/').pop().replace('.xml','').replace(/-sitemap\d*$/,'').replace(/-sitemap$/,'');
+            // ページ種別を判定
+            var type='その他';
+            if(fname==='page')type='固定';
+            else if(fname==='post'||fname==='posts')type='通常投稿';
+            else if(fname==='category'||fname==='tag'||fname==='archive'||fname.includes('cat')||fname.includes('archive'))type='除外';
+            else type='カスタム投稿'; // その他のカスタム投稿タイプ
+            if(type!=='除外')smEntries.push({url:smUrl,type:type,name:fname});
+          });
+          break;
+        } else {
+          // 通常のサイトマップ
+          var urlLocs=d.querySelectorAll('url loc');
+          if(urlLocs.length>0){
+            urlLocs.forEach(function(l){smEntries.push({url:l.textContent.trim(),type:'url'});});
+            break;
           }
-          d.querySelectorAll('url loc').forEach(function(l){urls.push(l.textContent.trim());});
-          if(urls.length>0)break;
         }
       }
-      r.estUrls=urls;
-      r.est=urls.length>0?calcEstimate(urls,rate):null;
-    }catch(e){r.est=null;}
+
+      // サイトマップインデックスの場合：ファイル名ベースで1スラッグ1件カウント
+      if(foundIndex&&smEntries.length>0){
+        var estRows=[];
+        var totalDesign2=0,totalCoding2=0;
+        var seenNames={};
+        smEntries.forEach(function(entry){
+          // 同じカスタム投稿タイプは1件（ナンバリングを除去して重複排除）
+          var baseName=entry.name.replace(/\d+$/,'');
+          if(seenNames[baseName])return;
+          seenNames[baseName]=true;
+          var def;
+          if(entry.type==='固定'){def={label:'固定ページ',design:2,coding:2};}
+          else if(entry.type==='通常投稿'){def={label:'通常投稿',design:2,coding:8};}
+          else{def={label:'カスタム投稿（'+baseName+'）',design:4,coding:8};}
+          totalDesign2+=def.design;totalCoding2+=def.coding;
+          estRows.push({label:def.label,cnt:1,design:def.design,coding:def.coding,subtotal:def.design+def.coding});
+        });
+        // TOPページを追加
+        totalDesign2+=24;totalCoding2+=40;
+        estRows.unshift({label:'トップページ（TOP）',cnt:1,design:24,coding:40,subtotal:64});
+        var dirH2=Math.ceil((totalDesign2+totalCoding2)*0.2);
+        var fixedH2=24;
+        var grand2=totalDesign2+totalCoding2+dirH2+fixedH2;
+        r.est={rows:estRows,dirH:dirH2,fixedH:fixedH2,totalDesign:totalDesign2,totalCoding:totalCoding2,grandTotal:grand2,totalYen:grand2*rate,pageCount:smEntries.length,rate:rate};
+        r.estUrls=[];
+      } else if(smEntries.length>0){
+        // 通常のURL一覧の場合は従来ロジック
+        var urls2=smEntries.map(function(e){return e.url;});
+        r.estUrls=urls2;
+        r.est=calcEstimate(urls2,rate);
+      } else {
+        r.est=null;
+      }
+    }catch(e){console.error(e);r.est=null;}
   }
 
   pb.style.width='100%';
